@@ -1,0 +1,6 @@
+{
+  "name": "Rummikub Online",
+  "description": "Real-time multiplayer Rummikub web & extension application with custom cat joker tiles, plush & dark glassmorphism themes, lobby chat, host room controls, game record dashboard, and regional access control.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
