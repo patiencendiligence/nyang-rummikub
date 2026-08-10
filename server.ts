@@ -22,6 +22,7 @@ app.use(express.json());
 
 // In-memory data stores
 const activeRooms: Record<string, GameState> = {};
+const turnTimeouts: Record<string, NodeJS.Timeout> = {};
 const lobbyMessages: ChatMessage[] = [];
 const gameRecordsStore: GameRecord[] = [];
 
@@ -258,6 +259,7 @@ io.on('connection', (socket) => {
     room.lastActionText = `${room.players[0].nickname} 님의 차례입니다.`;
 
     io.to(data.roomId).emit('game_started', room);
+    scheduleTurnTimeout(room);
     broadcastRoomsList();
   });
 
@@ -427,7 +429,8 @@ function handlePlayerLeave(socketId: string) {
           finishGame(
             room,
             soleWinner,
-            `${leavingPlayer.nickname} 님의 퇴장으로 최소 인원(2명) 미만이 되어 ${soleWinner.nickname} 님이 최종 승리하였습니다!`
+            `${leavingPlayer.nickname} 님의 퇴장으로 최소 인원(2명) 미만이 되어 ${soleWinner.nickname} 님이 최종 승리하였습니다!`,
+            leavingPlayer
           );
         } else {
           delete activeRooms[room.roomId];
@@ -488,6 +491,47 @@ function advanceTurn(room: GameState, actionText: string) {
   room.lastActionText = `${actionText} ${room.players[nextIndex].nickname} 님의 차례입니다.`;
 
   io.to(room.roomId).emit('room_updated', room);
+  scheduleTurnTimeout(room);
+}
+
+function scheduleTurnTimeout(room: GameState) {
+  if (turnTimeouts[room.roomId]) {
+    clearTimeout(turnTimeouts[room.roomId]);
+    delete turnTimeouts[room.roomId];
+  }
+
+  if (room.status !== 'playing') return;
+
+  const limitMs = (room.settings.turnTimeLimit || 30) * 1000 + 1000;
+  const turnStartTime = room.turnStartTime;
+
+  turnTimeouts[room.roomId] = setTimeout(() => {
+    const activeRoom = activeRooms[room.roomId];
+    if (!activeRoom || activeRoom.status !== 'playing') return;
+    if (activeRoom.turnStartTime !== turnStartTime) return;
+
+    const currentPlayer = activeRoom.players[activeRoom.currentTurnIndex];
+    if (!currentPlayer) return;
+
+    // Reset board & current player hand to snapshot if they made unsubmitted changes
+    activeRoom.board = JSON.parse(JSON.stringify(activeRoom.boardInitialSnapshot));
+    if (activeRoom.playerHandsSnapshot[currentPlayer.id]) {
+      currentPlayer.hand = JSON.parse(JSON.stringify(activeRoom.playerHandsSnapshot[currentPlayer.id]));
+    }
+
+    if (activeRoom.tilePool.length > 0) {
+      const drawnTile = activeRoom.tilePool.pop()!;
+      currentPlayer.hand.push(drawnTile);
+      advanceTurn(activeRoom, `${currentPlayer.nickname} 님이 시간 초과로 타일을 1개 가져왔습니다.`);
+    } else {
+      const winner = getLowestTileCountPlayer(activeRoom);
+      finishGame(
+        activeRoom,
+        winner,
+        `타일 더미가 모두 소진되어 남은 타일 수가 가장 적은 ${winner.nickname} 님이 승리하였습니다!`
+      );
+    }
+  }, limitMs);
 }
 
 function getLowestTileCountPlayer(room: GameState): Player {
@@ -508,7 +552,11 @@ function getLowestTileCountPlayer(room: GameState): Player {
   return bestWinner;
 }
 
-function finishGame(room: GameState, winner: Player, customReason?: string) {
+function finishGame(room: GameState, winner: Player, customReason?: string, leftPlayer?: Player) {
+  if (turnTimeouts[room.roomId]) {
+    clearTimeout(turnTimeouts[room.roomId]);
+    delete turnTimeouts[room.roomId];
+  }
   room.status = 'ended';
   room.winnerId = winner.id;
 
@@ -523,6 +571,13 @@ function finishGame(room: GameState, winner: Player, customReason?: string) {
     totalPenaltyPoints += penalty;
   });
 
+  if (leftPlayer) {
+    const penalty = leftPlayer.hand ? leftPlayer.hand.reduce((sum, tile) => sum + (tile.isJoker ? 30 : tile.number), 0) : 30;
+    const forfeitPenalty = Math.max(penalty, 30);
+    finalScores[leftPlayer.id] = -forfeitPenalty;
+    totalPenaltyPoints += forfeitPenalty;
+  }
+
   finalScores[winner.id] = totalPenaltyPoints;
   room.finalScores = finalScores;
   room.lastActionText = customReason || `🎉 ${winner.nickname} 님이 승리하였습니다!`;
@@ -532,7 +587,7 @@ function finishGame(room: GameState, winner: Player, customReason?: string) {
     id: `rec-${Date.now()}`,
     date: new Date().toLocaleDateString('ko-KR'),
     roomId: room.roomId,
-    playersCount: room.players.length,
+    playersCount: room.players.length + (leftPlayer ? 1 : 0),
     winnerName: winner.nickname,
     userScore: totalPenaltyPoints,
     durationSeconds: Math.floor((Date.now() - room.turnStartTime) / 1000),
@@ -541,6 +596,7 @@ function finishGame(room: GameState, winner: Player, customReason?: string) {
   gameRecordsStore.unshift(record);
 
   io.to(room.roomId).emit('game_ended', { room, winner, finalScores });
+  io.to(room.roomId).emit('room_updated', room);
   broadcastRoomsList();
 }
 

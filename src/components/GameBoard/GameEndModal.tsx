@@ -48,33 +48,48 @@ export const GameEndModal: React.FC<GameEndModalProps> = ({
     <>
       {/* Result Image Layer Popup */}
       {showResultPopup && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70 backdrop-blur-md animate-fade-in">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/65 backdrop-blur-md animate-fade-in">
           <div
-            className={`relative w-full max-w-sm sm:max-w-md p-6 rounded-3xl border shadow-2xl text-center flex flex-col items-center gap-4 ${
+            className={`relative w-full max-w-sm sm:max-w-md p-6 shadow-2xl text-center flex flex-col items-center gap-4 transition-all ${
               isDefault
-                ? 'bg-[#F4F0E6] border-[#D8D0C4] text-[#111111]'
-                : 'bg-[#EAF4FF] border-[#6FA8FF] text-[#1E3A8A]'
+                ? 'plush-cushion text-[#2D323E]'
+                : 'rain-glass-card glass-shine text-[#1E3A8A]'
             }`}
           >
             {/* Top right close button */}
             <button
               onClick={() => setShowResultPopup(false)}
-              className="absolute top-4 right-4 w-8 h-8 rounded-full bg-black/10 hover:bg-black/20 flex items-center justify-center text-current transition-colors"
+              className={`absolute top-4 right-4 w-8 h-8 rounded-full flex items-center justify-center transition-all ${
+                isDefault
+                  ? 'plush-debossed hover:opacity-80 text-[#2D323E]'
+                  : 'glass-capsule hover:bg-white/40 text-[#1E3A8A]'
+              }`}
               aria-label="닫기"
             >
-              <X className="w-5 h-5" />
+              <X className="w-4 h-4 stroke-[2.5]" />
             </button>
 
             {isIWin ? (
               <div className="flex flex-col items-center gap-3 w-full">
-                <span className="text-xs font-black px-3 py-1 rounded-full bg-amber-500 text-white shadow-sm">
-                  VICTORY
+                <span
+                  className={`text-xs font-black px-4 py-1.5 rounded-full shadow-sm tracking-wider ${
+                    isDefault ? 'plush-rose-badge' : 'glass-capsule text-amber-700 bg-amber-100/90'
+                  }`}
+                >
+                  🎉 VICTORY 🎉
                 </span>
-                <div className="w-full max-h-[280px] flex items-center justify-center overflow-hidden rounded-2xl bg-black/5 p-3">
+                <h3 className={`text-2xl font-black tracking-tight ${isDefault ? 'embroidered-text' : ''}`}>
+                  축하합니다! 승리하셨습니다!
+                </h3>
+                <div
+                  className={`w-full max-h-[260px] flex items-center justify-center overflow-hidden rounded-2xl p-3 ${
+                    isDefault ? 'plush-debossed' : 'glass-debossed bg-white/30'
+                  }`}
+                >
                   <img
                     src="/win.png"
                     alt="승리"
-                    className="max-h-[250px] w-auto object-contain rounded-xl drop-shadow-md"
+                    className="max-h-[230px] w-auto object-contain rounded-xl drop-shadow-md transform hover:scale-105 transition-transform"
                     onError={(e) => {
                       const target = e.currentTarget;
                       if (!target.dataset.triedPublic) {
@@ -87,14 +102,27 @@ export const GameEndModal: React.FC<GameEndModalProps> = ({
               </div>
             ) : (
               <div className="flex flex-col items-center gap-3 w-full">
-                <span className="text-xs font-black px-3 py-1 rounded-full bg-slate-600 text-white shadow-sm">
+                <span
+                  className={`text-xs font-black px-4 py-1.5 rounded-full shadow-sm tracking-wider ${
+                    isDefault
+                      ? 'plush-pill text-[#3B4050]'
+                      : 'glass-capsule text-slate-700 bg-slate-100/90'
+                  }`}
+                >
                   GAME OVER
                 </span>
-                <div className="w-full max-h-[280px] flex items-center justify-center overflow-hidden rounded-2xl bg-black/5 p-3">
+                <h3 className={`text-2xl font-black tracking-tight text-rose-500 ${isDefault ? 'embroidered-text' : ''}`}>
+                  아쉽네요! 분발하세요! 🐱
+                </h3>
+                <div
+                  className={`w-full max-h-[260px] flex items-center justify-center overflow-hidden rounded-2xl p-3 ${
+                    isDefault ? 'plush-debossed' : 'glass-debossed bg-white/30'
+                  }`}
+                >
                   <img
                     src="/lose.png"
                     alt="패배"
-                    className="max-h-[250px] w-auto object-contain rounded-xl drop-shadow-md"
+                    className="max-h-[230px] w-auto object-contain rounded-xl drop-shadow-md transform hover:scale-105 transition-transform"
                     onError={(e) => {
                       const target = e.currentTarget;
                       if (!target.dataset.triedPublic) {
@@ -104,59 +132,65 @@ export const GameEndModal: React.FC<GameEndModalProps> = ({
                     }}
                   />
                 </div>
-                <p className="text-2xl font-black text-rose-600 tracking-tight mt-1">
-                  분발하세요!
-                </p>
               </div>
             )}
 
             <button
               onClick={() => setShowResultPopup(false)}
-              className={`w-full py-3.5 rounded-2xl font-black text-sm text-white shadow-md transition-all active:scale-95 mt-2 ${
-                isDefault
-                  ? 'bg-[#356C63] hover:bg-[#2A5750]'
-                  : 'bg-[#4E8EF2] hover:bg-[#3B72D4]'
+              className={`w-full py-3.5 rounded-2xl font-black text-sm text-white shadow-md transition-all active:scale-95 mt-1 ${
+                isDefault ? 'plush-purple-btn' : 'glass-gel-btn'
               }`}
             >
-              닫기
+              상세 점수 보기
             </button>
           </div>
         </div>
       )}
 
       {/* Main Game End Score Modal */}
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-md animate-fade-in">
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-fade-in">
         <div
-          className={`w-full max-w-md p-6 rounded-3xl border shadow-2xl text-center flex flex-col gap-5 ${
+          className={`w-full max-w-md p-6 sm:p-7 shadow-2xl text-center flex flex-col gap-5 transition-all ${
             isDefault
-              ? 'bg-[#F4F0E6] border-[#D8D0C4] text-[#111111]'
-              : 'bg-[#EAF4FF] border-[#6FA8FF] text-[#1E3A8A]'
+              ? 'plush-cushion text-[#2D323E]'
+              : 'rain-glass-card glass-shine text-[#1E3A8A]'
           }`}
         >
-          <div className="w-16 h-16 rounded-full bg-[#D9A63B] text-white flex items-center justify-center mx-auto shadow-lg">
-            <Trophy className="w-9 h-9" />
+          <div
+            className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto shadow-lg shrink-0 ${
+              isDefault ? 'plush-orb-btn bg-amber-400/20 text-amber-600' : 'glass-capsule text-amber-500 bg-amber-100/80'
+            }`}
+          >
+            <Trophy className="w-9 h-9 stroke-[2.2]" />
           </div>
 
           <div>
-            <span className="text-xs font-black px-3 py-1 rounded-full bg-[#D9A63B] text-white mb-2 inline-block">
-              GAME OVER
+            <span
+              className={`text-xs font-black px-3.5 py-1 rounded-full shadow-sm mb-2 inline-block ${
+                isDefault ? 'plush-rose-badge' : 'glass-capsule text-amber-800 bg-amber-200/80'
+              }`}
+            >
+              FINAL SCORE
             </span>
-            <h3 className="text-2xl font-black">
+            <h3 className={`text-2xl sm:text-3xl font-black tracking-tight ${isDefault ? 'embroidered-text' : ''}`}>
               🎉 {winner?.nickname || '승리자'} 승리!
             </h3>
-            <p className="text-xs mt-1 opacity-80">
-              손에 있는 모든 타일을 정합한 조합으로 제출하였습니다!
+            <p className="text-xs sm:text-sm mt-1.5 font-bold opacity-80">
+              {winner
+                ? `${winner.nickname} 님이 손의 모든 타일을 제출하여 대결에서 승리했습니다!`
+                : '게임이 종료되었습니다.'}
             </p>
           </div>
 
           {/* Scores Table */}
           <div
-            className={`p-4 rounded-2xl border text-left flex flex-col gap-2 ${
-              isDefault ? 'bg-[#EFE7D8] border-[#D8D0C4]' : 'bg-white border-[#6FA8FF]'
+            className={`p-4 rounded-2xl text-left flex flex-col gap-2.5 transition-all ${
+              isDefault ? 'plush-debossed' : 'glass-debossed bg-white/40'
             }`}
           >
-            <h4 className="text-xs font-extrabold border-b pb-1.5 opacity-75">
-              최종 점수 현황 (남은 타일 벌점 계산)
+            <h4 className="text-xs font-black border-b pb-2 border-black/10 opacity-75 flex items-center justify-between">
+              <span>최종 점수 현황</span>
+              <span className="text-[10px] font-bold">(남은 타일 벌점 계산)</span>
             </h4>
 
             {gameState.players.map((p) => {
@@ -164,11 +198,20 @@ export const GameEndModal: React.FC<GameEndModalProps> = ({
               const isWinner = p.id === winner?.id;
 
               return (
-                <div key={p.id} className="flex items-center justify-between text-xs font-extrabold">
+                <div key={p.id} className="flex items-center justify-between text-xs sm:text-sm font-black">
                   <span className="flex items-center gap-1.5">
-                    {isWinner ? '👑' : '•'} {p.nickname}
+                    <span className="text-base">{isWinner ? '👑' : '🐾'}</span>
+                    <span className={isWinner ? 'text-amber-700 font-extrabold' : ''}>
+                      {p.nickname} {p.id === currentUserId && '(나)'}
+                    </span>
                   </span>
-                  <span className={score > 0 ? 'text-emerald-600 font-black' : 'text-red-500'}>
+                  <span className={`px-2.5 py-0.5 rounded-full text-xs font-black ${
+                    score > 0
+                      ? 'bg-emerald-100 text-emerald-700 border border-emerald-300'
+                      : score === 0
+                      ? 'bg-amber-100 text-amber-800 border border-amber-300'
+                      : 'bg-rose-100 text-rose-700 border border-rose-300'
+                  }`}>
                     {score > 0 ? `+${score}` : score} 점
                   </span>
                 </div>
@@ -179,10 +222,10 @@ export const GameEndModal: React.FC<GameEndModalProps> = ({
           <button
             onClick={onReturnToLobby}
             className={`w-full py-3.5 rounded-2xl font-black text-sm flex items-center justify-center gap-2 text-white shadow-md transition-all active:scale-95 ${
-              isDefault ? 'bg-[#356C63]' : 'bg-[#4E8EF2]'
+              isDefault ? 'plush-rose-btn' : 'glass-gel-btn'
             }`}
           >
-            <Home className="w-4 h-4" /> 대기실로 돌아가기
+            <Home className="w-4 h-4 stroke-[2.5]" /> 대기실로 돌아가기
           </button>
         </div>
       </div>
