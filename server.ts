@@ -16,7 +16,7 @@ const io = new SocketIOServer(server, {
   maxHttpBufferSize: 1e7, // 10MB
 });
 
-const PORT = 3000;
+const PORT = Number(process.env.PORT) || 3000;
 
 app.use(express.json());
 
