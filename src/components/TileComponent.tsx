@@ -39,25 +39,26 @@ export const TileComponent: React.FC<TileComponentProps> = ({
   };
 
   const sizeClasses = {
-    sm: 'w-9 h-13 text-xs rounded-xl',
-    md: 'w-12 h-16 text-base rounded-2xl',
-    lg: 'w-14 h-20 text-xl rounded-2xl',
+    xs: 'w-4 h-6 text-[7px] rounded-sm',
+    sm: 'w-[20px] h-[30px] sm:w-[30px] sm:h-[44px] text-[8px] sm:text-[11px] rounded-sm sm:rounded-lg',
+    md: 'w-[24px] h-[36px] sm:w-[38px] sm:h-[54px] text-[9px] sm:text-sm rounded-md sm:rounded-xl',
+    lg: 'w-[30px] h-[44px] sm:w-[46px] sm:h-[64px] text-[11px] sm:text-base rounded-lg sm:rounded-xl',
   };
 
   const sizeDimensions = sizeClasses[size];
 
   return (
     <motion.div
-      whileHover={{ scale: 1.08, y: -4 }}
+      whileHover={{ scale: 1.08, y: -2 }}
       whileTap={{ scale: 0.93 }}
       onClick={onClick}
       draggable={draggable}
       onDragStart={onDragStart}
-      className={`relative cursor-pointer select-none flex flex-col items-center justify-between p-1.5 transition-all font-black ${sizeDimensions} ${
+      className={`relative cursor-pointer select-none flex flex-col items-center justify-between p-0.5 sm:p-1 transition-all font-black ${sizeDimensions} ${
         isSelected
           ? isDefault
-            ? 'ring-4 ring-[#D9A63B] shadow-2xl -translate-y-1.5'
-            : 'ring-4 ring-[#FFFFFF] shadow-2xl -translate-y-1.5 scale-105'
+            ? 'ring-2 sm:ring-4 ring-[#D9A63B] shadow-xl -translate-y-1'
+            : 'ring-2 sm:ring-4 ring-[#FFFFFF] shadow-xl -translate-y-1 scale-105'
           : ''
       } ${
         isDefault
@@ -69,7 +70,7 @@ export const TileComponent: React.FC<TileComponentProps> = ({
       }}
     >
       {/* Top indicator dot or water shine */}
-      <div className="w-2 h-2 rounded-full shadow-sm" style={{ backgroundColor: getColorHex() }} />
+      <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full shadow-sm" style={{ backgroundColor: getColorHex() }} />
 
       {/* Main Tile Value or Cat Joker */}
       {tile.isJoker ? (

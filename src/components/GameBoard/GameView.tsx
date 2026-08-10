@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Socket } from 'socket.io-client';
 import { Check, Plus, RotateCcw, Smile, AlertCircle, Clock, Layers, ArrowLeft } from 'lucide-react';
 import { GameState, Tile, TileSet, ThemeMode, Player, ChatMessage } from '../../types/game';
@@ -54,18 +54,30 @@ export const GameView: React.FC<GameViewProps> = ({
   // Timer countdown
   const turnTimeLimit = gameState.settings.turnTimeLimit || 30;
   const [timeLeft, setTimeLeft] = useState<number>(turnTimeLimit);
+  const autoDrawTriggeredRef = useRef<number | null>(null);
 
   useEffect(() => {
     const updateTimer = () => {
       const elapsed = Math.floor((Date.now() - gameState.turnStartTime) / 1000);
       const remaining = Math.max(0, turnTimeLimit - elapsed);
       setTimeLeft(remaining);
+
+      if (remaining === 0 && isMyTurn && gameState.status === 'playing') {
+        if (autoDrawTriggeredRef.current !== gameState.turnStartTime) {
+          autoDrawTriggeredRef.current = gameState.turnStartTime;
+          if (socket) {
+            sounds.playDrawTile();
+            socket.emit('draw_tile', { roomId: gameState.roomId });
+            setSelectedTile(null);
+          }
+        }
+      }
     };
 
     updateTimer();
     const interval = setInterval(updateTimer, 500);
     return () => clearInterval(interval);
-  }, [gameState.turnStartTime, turnTimeLimit]);
+  }, [gameState.turnStartTime, turnTimeLimit, isMyTurn, gameState.status, gameState.roomId, socket]);
 
   const progressPercent = Math.min(100, Math.max(0, (timeLeft / turnTimeLimit) * 100));
 
@@ -350,130 +362,126 @@ export const GameView: React.FC<GameViewProps> = ({
 
         {/* RIGHT COLUMN / BOTTOM-RIGHT ACTION CONTROLS */}
         <div
-          className={`w-[60px] sm:w-[76px] md:w-[96px] shrink-0 flex flex-col items-center justify-between p-1 sm:p-1.5 rounded-2xl overflow-y-auto gap-1.5 shadow-inner transition-all ${
+          className={`w-[44px] sm:w-[60px] md:w-[76px] shrink-0 flex flex-col items-center justify-between p-0.5 sm:p-1 rounded-xl sm:rounded-2xl overflow-y-auto gap-0.5 sm:gap-1 shadow-inner transition-all ${
             isDefault ? 'plush-cushion' : 'rain-glass-card glass-shine'
           }`}
         >
-            {/* LEFT COLUMN: Players Vertical Stack */}
-        <div
-          className={`w-[60px] sm:w-[76px] md:w-[96px] shrink-0 flex flex-col items-center justify-start gap-2.5 p-1.5 rounded-2xl overflow-y-auto shadow-inner relative transition-all ${
-            isDefault ? 'plush-cushion' : 'rain-glass-card glass-shine'
-          }`}
-        >
-          {gameState.players.map((p, idx) => {
-            const isTurn = idx === gameState.currentTurnIndex;
-            const isSelf = p.id === currentUserId;
-            const currentEmoji = activeEmojis[p.nickname];
+          {/* Players Vertical Stack */}
+          <div className="flex flex-col items-center justify-start gap-1 sm:gap-2 w-full relative">
+            {gameState.players.map((p, idx) => {
+              const isTurn = idx === gameState.currentTurnIndex;
+              const isSelf = p.id === currentUserId;
+              const currentEmoji = activeEmojis[p.nickname];
 
-            return (
-              <div key={p.id} className="flex flex-col items-center relative group w-full">
-                {/* Avatar with Turn Ring & Scale-Up Emoji Overlay */}
-                <div
-                  className={`w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 rounded-full relative p-0.5 transition-all flex items-center justify-center ${
-                    isTurn
-                      ? 'ring-4 ring-amber-400 ring-offset-2 ring-offset-white animate-pulse scale-105'
-                      : 'border-2 border-white/60'
-                  }`}
-                >
-                  <img
-                    src={CAT_AVATARS[idx % CAT_AVATARS.length]}
-                    alt={p.nickname}
-                    className="w-full h-full object-cover rounded-full bg-gray-200"
-                  />
-
-                  {/* Scale-Up Emoji Overlay directly on profile avatar size */}
-                  {currentEmoji && (
-                    <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-[1px] rounded-full animate-in zoom-in-50 fade-in duration-200 pointer-events-none">
-                      <span className="text-2xl sm:text-3xl md:text-3xl animate-bounce drop-shadow-lg select-none">
-                        {currentEmoji}
-                      </span>
-                    </div>
-                  )}
-
-                  {/* Tile Count Badge */}
+              return (
+                <div key={p.id} className="flex flex-col items-center relative group w-full">
+                  {/* Avatar with Turn Ring & Scale-Up Emoji Overlay */}
                   <div
-                    className={`absolute -top-1 -right-1 font-black text-[8px] sm:text-[10px] px-1.5 py-0.5 rounded-full shadow-md flex items-center gap-0.5 z-10 ${
-                      isDefault
-                        ? 'bg-[#356C63] text-white border border-emerald-700'
-                        : 'glass-capsule bg-blue-600 text-white'
+                    className={`w-6 h-6 sm:w-8 sm:h-8 md:w-10 md:h-10 rounded-full relative p-0.5 transition-all flex items-center justify-center ${
+                      isTurn
+                        ? 'ring-2 ring-amber-400 ring-offset-1 ring-offset-white animate-pulse scale-105'
+                        : 'border border-white/60'
                     }`}
                   >
-                    <span>★</span>
-                    <span>{p.hand.length}</span>
+                    <img
+                      src={CAT_AVATARS[idx % CAT_AVATARS.length]}
+                      alt={p.nickname}
+                      className="w-full h-full object-cover rounded-full bg-gray-200"
+                    />
+
+                    {/* Scale-Up Emoji Overlay directly on profile avatar size */}
+                    {currentEmoji && (
+                      <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-[1px] rounded-full animate-in zoom-in-50 fade-in duration-200 pointer-events-none">
+                        <span className="text-base sm:text-xl md:text-2xl animate-bounce drop-shadow-lg select-none">
+                          {currentEmoji}
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Tile Count Badge */}
+                    <div
+                      className={`absolute -top-1 -right-1 font-black text-[6px] sm:text-[8px] px-0.5 py-0.2 rounded-full shadow-md flex items-center gap-0.5 z-10 ${
+                        isDefault
+                          ? 'bg-[#356C63] text-white border border-emerald-700'
+                          : 'glass-capsule bg-blue-600 text-white'
+                      }`}
+                    >
+                      <span>★</span>
+                      <span>{p.hand.length}</span>
+                    </div>
+                  </div>
+
+                  {/* Nickname & Melded Tag */}
+                  <div className="mt-0.5 text-center w-full">
+                    <span
+                      className={`text-[7px] sm:text-[8px] md:text-[10px] font-black block truncate leading-tight ${
+                        isTurn
+                          ? isDefault
+                            ? 'text-amber-700'
+                            : 'text-blue-900 font-extrabold'
+                          : isDefault
+                          ? 'text-[#2D323E]'
+                          : 'text-[#1E3A8A]'
+                      }`}
+                    >
+                      {p.nickname} {isSelf && '(나)'}
+                    </span>
+                    <span className="text-[6px] sm:text-[7px] font-bold opacity-70 block">
+                      {p.hasMelded ? '30+' : '미등록'}
+                    </span>
                   </div>
                 </div>
+              );
+            })}
+          </div>
 
-                {/* Nickname & Melded Tag */}
-                <div className="mt-0.5 text-center w-full">
-                  <span
-                    className={`text-[9px] sm:text-[10px] md:text-xs font-black block truncate leading-tight ${
-                      isTurn
-                        ? isDefault
-                          ? 'text-amber-700'
-                          : 'text-blue-900 font-extrabold'
-                        : isDefault
-                        ? 'text-[#2D323E]'
-                        : 'text-[#1E3A8A]'
-                    }`}
-                  >
-                    {p.nickname} {isSelf && '(나)'}
-                  </span>
-                  <span className="text-[8px] sm:text-[9px] font-bold opacity-70 block">
-                    {p.hasMelded ? '30+' : '미등록'}
-                  </span>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-       
           {/* Bottom Right Primary Controls: Draw +, Submit, Reset */}
-          <div className="flex flex-col gap-1.5 w-full mt-auto">
-          {/* Top/Upper: Sort Buttons (789 & 777) */}
-          <div className="flex flex-col gap-1 w-full">
-            <button
-              onClick={handleSortByNumber}
-              className={`w-full py-1 font-black text-[10px] sm:text-xs md:text-sm rounded-xl shadow transition-all active:scale-95 ${
-                isDefault ? 'plush-pill hover:bg-amber-100' : 'glass-capsule text-[#1E3A8A]'
-              }`}
-              title="숫자/연속 순 정렬 (789)"
-            >
-              789
-            </button>
-            <button
-              onClick={handleSortByColor}
-              className={`w-full py-1 font-black text-[10px] sm:text-xs md:text-sm rounded-xl shadow transition-all active:scale-95 ${
-                isDefault ? 'plush-pill hover:bg-indigo-100' : 'glass-capsule text-[#1E3A8A]'
-              }`}
-              title="색상/그룹 순 정렬 (777)"
-            >
-              777
-            </button>
-          </div>
-
-          {/* Quick Emoji Reaction Cluster */}
-          <div
-            className={`w-full p-1 rounded-xl grid grid-cols-2 gap-0.5 sm:gap-1 text-center ${
-              isDefault ? 'plush-debossed' : 'bg-white/40'
-            }`}
-          >
-            {EMOJIS.map((emoji) => (
+          <div className="flex flex-col gap-0.5 sm:gap-1 w-full mt-auto">
+            {/* Top/Upper: Sort Buttons (789 & 777) */}
+            <div className="flex flex-col gap-0.5 w-full">
               <button
-                key={emoji}
-                onClick={() => handleSendEmoji(emoji)}
-                className="text-sm sm:text-base md:text-lg hover:scale-125 transition-transform active:scale-90"
-                title={`${emoji} 감정 보내기`}
+                onClick={handleSortByNumber}
+                className={`w-full py-0.5 font-black text-[8px] sm:text-[10px] md:text-xs rounded-lg shadow transition-all active:scale-95 ${
+                  isDefault ? 'plush-pill hover:bg-amber-100' : 'glass-capsule text-[#1E3A8A]'
+                }`}
+                title="숫자/연속 순 정렬 (789)"
               >
-                {emoji}
+                789
               </button>
-            ))}
-          </div>
+              <button
+                onClick={handleSortByColor}
+                className={`w-full py-0.5 font-black text-[8px] sm:text-[10px] md:text-xs rounded-lg shadow transition-all active:scale-95 ${
+                  isDefault ? 'plush-pill hover:bg-indigo-100' : 'glass-capsule text-[#1E3A8A]'
+                }`}
+                title="색상/그룹 순 정렬 (777)"
+              >
+                777
+              </button>
+            </div>
+
+            {/* Quick Emoji Reaction Cluster */}
+            <div
+              className={`w-full p-0.5 rounded-lg grid grid-cols-2 gap-0.5 text-center ${
+                isDefault ? 'plush-debossed' : 'bg-white/40'
+              }`}
+            >
+              {EMOJIS.map((emoji) => (
+                <button
+                  key={emoji}
+                  onClick={() => handleSendEmoji(emoji)}
+                  className="text-[10px] sm:text-xs md:text-sm hover:scale-125 transition-transform active:scale-90"
+                  title={`${emoji} 감정 보내기`}
+                >
+                  {emoji}
+                </button>
+              ))}
+            </div>
 
             {/* Draw Tile + Button */}
             <button
               disabled={!isMyTurn}
               onClick={handleDrawTile}
-              className={`w-full py-1.5 sm:py-2 rounded-2xl flex flex-col items-center justify-center gap-0.5 font-black shadow-lg transition-all active:scale-95 ${
+              className={`w-full py-1 sm:py-1.5 rounded-xl flex flex-col items-center justify-center gap-0.5 font-black shadow-md transition-all active:scale-95 ${
                 isMyTurn
                   ? isDefault
                     ? 'plush-purple-btn text-white animate-pulse'
@@ -482,8 +490,8 @@ export const GameView: React.FC<GameViewProps> = ({
               }`}
               title="타일 1개 가져오기 & 턴 패스"
             >
-              <Plus className="w-4 h-4 sm:w-5 sm:h-5 stroke-[3]" />
-              <span className="text-[9px] sm:text-[10px] md:text-xs font-black tracking-tight">
+              <Plus className="w-3 h-3 sm:w-4 sm:h-4 stroke-[3]" />
+              <span className="text-[7px] sm:text-[9px] font-black tracking-tight">
                 +{gameState.tilePool.length}
               </span>
             </button>
@@ -492,7 +500,7 @@ export const GameView: React.FC<GameViewProps> = ({
             <button
               disabled={!isMyTurn}
               onClick={handleEndTurn}
-              className={`w-full py-1.5 sm:py-2 rounded-xl font-black text-xs flex items-center justify-center gap-0.5 sm:gap-1 shadow transition-all active:scale-95 ${
+              className={`w-full py-1 sm:py-1.5 rounded-lg font-black flex items-center justify-center gap-0.5 shadow transition-all active:scale-95 ${
                 isMyTurn
                   ? isDefault
                     ? 'plush-rose-btn text-white'
@@ -501,15 +509,15 @@ export const GameView: React.FC<GameViewProps> = ({
               }`}
               title="등록 / Turn 완료"
             >
-              <Check className="w-3.5 h-3.5 sm:w-4 sm:h-4 stroke-[3]" />
-              <span className="text-[9px] sm:text-[10px] md:text-xs">등록</span>
+              <Check className="w-3 h-3 sm:w-3.5 sm:h-3.5 stroke-[3]" />
+              <span className="text-[7px] sm:text-[9px]">등록</span>
             </button>
 
-            {/* Reset Turn */}
+            {/* Reset Turn with 10px top margin and 20px bottom margin */}
             <button
               disabled={!isMyTurn}
               onClick={handleResetBoard}
-              className={`w-full py-1 sm:py-1.5 rounded-xl font-black text-[9px] sm:text-[10px] md:text-xs flex items-center justify-center gap-0.5 transition-all active:scale-95 ${
+              className={`w-full py-0.5 sm:py-1 rounded-lg font-black flex items-center justify-center gap-0.5 transition-all active:scale-95 mt-[10px] mb-[20px] ${
                 isMyTurn
                   ? isDefault
                     ? 'plush-debossed text-[#2D323E]'
@@ -518,8 +526,8 @@ export const GameView: React.FC<GameViewProps> = ({
               }`}
               title="이번 턴의 배치 되돌리기"
             >
-              <RotateCcw className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
-              <span>리셋</span>
+              <RotateCcw className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
+              <span className="text-[7px] sm:text-[9px]">리셋</span>
             </button>
           </div>
         </div>
