@@ -9,3 +9,5 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
+      - key: VITE_SOCKET_URL
+        value: https://nyang-rummikub.onrender.com
