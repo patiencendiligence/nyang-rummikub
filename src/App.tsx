@@ -7,6 +7,7 @@ import { GameView } from './components/GameBoard/GameView';
 import { RulesModal } from './components/RulesModal';
 import { DashboardModal } from './components/DashboardModal';
 import { GeoBlockedView } from './components/GeoBlockedView';
+import { SeoIntro } from './components/SeoIntro';
 import { KickedModal } from './components/KickedModal';
 import { NicknameModal } from './components/NicknameModal';
 import { LanguageProvider } from './constants/language';
@@ -58,13 +59,16 @@ export default function App() {
 
         <main className={currentView === 'game' ? 'h-screen overflow-hidden' : 'pb-12'}>
           {currentView === 'lobby' && (
-            <LobbyView
-              socket={socket}
-              nickname={nickname}
-              theme={theme}
-              onJoinRoom={joinRoom}
-              onCreateRoom={createRoom}
-            />
+            <>
+              <LobbyView
+                socket={socket}
+                nickname={nickname}
+                theme={theme}
+                onJoinRoom={joinRoom}
+                onCreateRoom={createRoom}
+              />
+              <SeoIntro theme={theme} />
+            </>
           )}
 
           {currentView === 'waiting' && gameState && (

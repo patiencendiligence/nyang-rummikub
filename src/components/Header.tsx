@@ -46,7 +46,7 @@ export const Header: React.FC<HeaderProps> = ({
               }}
             />
           </div>
-          <h1 className={`font-bold text-base sm:text-lg tracking-tight leading-tight hidden sm:block ${isDefault ? 'text-[#2D323E]' : 'text-[#222222]'}`}>
+          <h1 className={`font-bold text-sm sm:text-lg tracking-tight leading-tight ${isDefault ? 'text-[#2D323E]' : 'text-[#222222]'}`}>
             {t('brand')}
           </h1>
         </div>
