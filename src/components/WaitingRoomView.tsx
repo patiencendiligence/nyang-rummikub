@@ -269,6 +269,7 @@ export const WaitingRoomView: React.FC<WaitingRoomViewProps> = ({
           <div className="flex flex-col gap-2 mt-auto">
             {isHost ? (
               <button
+                onClick={handleStartGame}
                 disabled={gameState.players.length < 2}
                 className={`w-full py-3.5 rounded-2xl font-black text-sm flex items-center justify-center gap-2 shadow-lg transition-all active:scale-95 ${
                   gameState.players.length >= 2
