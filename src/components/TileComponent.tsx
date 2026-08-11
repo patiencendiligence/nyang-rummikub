@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { motion } from 'motion/react';
 import { Tile, ThemeMode } from '../types/game';
 
@@ -9,6 +9,7 @@ interface TileComponentProps {
   onClick?: () => void;
   draggable?: boolean;
   onDragStart?: (e: React.DragEvent) => void;
+  onLongPress?: () => void;
   size?: 'sm' | 'md' | 'lg';
 }
 
@@ -19,6 +20,7 @@ export const TileComponent: React.FC<TileComponentProps> = ({
   onClick,
   draggable = true,
   onDragStart,
+  onLongPress,
   size = 'md',
 }) => {
   const isDefault = theme === 'default';
@@ -27,11 +29,11 @@ export const TileComponent: React.FC<TileComponentProps> = ({
   const getColorHex = () => {
     switch (tile.color) {
       case 'red':
-        return isDefault ? '#C76455' : '#EF4444';
+        return isDefault ? '#c75575' : '#ff0000';
       case 'blue':
         return isDefault ? '#2563EB' : '#1D4ED8';
       case 'yellow':
-        return isDefault ? '#D97706' : '#D97706';
+        return isDefault ? '#e7b605' : '#ffd000';
       case 'black':
       default:
         return isDefault ? '#111111' : '#0F172A';
@@ -46,12 +48,40 @@ export const TileComponent: React.FC<TileComponentProps> = ({
   };
 
   const sizeDimensions = sizeClasses[size];
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const suppressClick = useRef(false);
+
+  const clearLongPress = () => {
+    if (longPressTimer.current) clearTimeout(longPressTimer.current);
+    longPressTimer.current = null;
+  };
+
+  const handlePointerDown = () => {
+    if (!onLongPress) return;
+    suppressClick.current = false;
+    longPressTimer.current = setTimeout(() => {
+      suppressClick.current = true;
+      onLongPress();
+    }, 500);
+  };
+
+  const handleClick = () => {
+    if (suppressClick.current) {
+      suppressClick.current = false;
+      return;
+    }
+    onClick?.();
+  };
 
   return (
     <motion.div
       whileHover={{ scale: 1.08, y: -2 }}
       whileTap={{ scale: 0.93 }}
-      onClick={onClick}
+      onClick={handleClick}
+      onPointerDown={handlePointerDown}
+      onPointerUp={clearLongPress}
+      onPointerCancel={clearLongPress}
+      onPointerLeave={clearLongPress}
       draggable={draggable}
       onDragStart={onDragStart}
       className={`relative cursor-pointer select-none flex flex-col items-center justify-between p-0.5 sm:p-1 transition-all font-black ${sizeDimensions} ${

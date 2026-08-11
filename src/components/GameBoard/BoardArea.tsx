@@ -11,6 +11,9 @@ interface BoardAreaProps {
   onPlaceTileToSet: (setIndex: number) => void;
   onCreateNewSetWithTile: () => void;
   onTileClickOnBoard: (setIndex: number, tileIndex: number) => void;
+  onDropTileToSet: (setIndex: number, tileId: string) => void;
+  onDropTileToNewSet: (tileId: string) => void;
+  invalidSetCount: number;
 }
 
 export const BoardArea: React.FC<BoardAreaProps> = ({
@@ -20,6 +23,9 @@ export const BoardArea: React.FC<BoardAreaProps> = ({
   onPlaceTileToSet,
   onCreateNewSetWithTile,
   onTileClickOnBoard,
+  onDropTileToSet,
+  onDropTileToNewSet,
+  invalidSetCount,
 }) => {
   const isDefault = theme === 'default';
 
@@ -35,6 +41,11 @@ export const BoardArea: React.FC<BoardAreaProps> = ({
         <span className={isDefault ? 'embroidered-text' : ''}>
           테이블 타일 조합 ({board.length}개)
         </span>
+        {invalidSetCount > 0 && (
+          <span className="text-red-600 font-black animate-pulse">
+            무효 조합 {invalidSetCount}개
+          </span>
+        )}
         {selectedTile && (
           <span className="text-[#D9A63B] font-black animate-pulse text-[9px] sm:text-xs">
             선택한 타일을 터치하여 배치하세요!
@@ -59,6 +70,12 @@ export const BoardArea: React.FC<BoardAreaProps> = ({
               <div
                 key={`set-${setIndex}`}
                 onClick={() => selectedTile && onPlaceTileToSet(setIndex)}
+                onDragOver={(event) => event.preventDefault()}
+                onDrop={(event) => {
+                  event.preventDefault();
+                  const tileId = event.dataTransfer.getData('text/tile-id');
+                  if (tileId) onDropTileToSet(setIndex, tileId);
+                }}
                 className={`p-0.5 sm:p-1 flex items-center gap-0.5 transition-all ${
                   valid
                     ? isDefault
@@ -74,6 +91,10 @@ export const BoardArea: React.FC<BoardAreaProps> = ({
                     theme={theme}
                     size="sm"
                     onClick={() => onTileClickOnBoard(setIndex, tileIndex)}
+                    onDragStart={(event) => {
+                      event.dataTransfer.setData('text/tile-id', tile.id);
+                      event.dataTransfer.setData('text/tile-source', 'board');
+                    }}
                   />
                 ))}
 
@@ -88,18 +109,24 @@ export const BoardArea: React.FC<BoardAreaProps> = ({
         )}
 
         {/* Drop zone to create a brand new set */}
-        {selectedTile && (
+        {
           <button
-            onClick={onCreateNewSetWithTile}
+            onClick={selectedTile ? onCreateNewSetWithTile : undefined}
+            onDragOver={(event) => event.preventDefault()}
+            onDrop={(event) => {
+              event.preventDefault();
+              const tileId = event.dataTransfer.getData('text/tile-id');
+              if (tileId) onDropTileToNewSet(tileId);
+            }}
             className={`p-1.5 sm:p-2 rounded-xl border border-dashed flex items-center justify-center gap-1 font-black text-[10px] sm:text-xs transition-all ${
               isDefault
                 ? 'border-[#356C63] text-[#356C63] bg-[#F4F0E6] hover:bg-[#356C63] hover:text-white'
                 : 'border-white text-white glass-gel-btn'
             }`}
           >
-            <Plus className="w-3 h-3 sm:w-4 sm:h-4" /> 새 조합으로 등록
+            <Plus className="w-3 h-3 sm:w-4 sm:h-4" /> {selectedTile ? '새 조합으로 등록' : '여기에 타일 놓기'}
           </button>
-        )}
+        }
       </div>
     </div>
   );

@@ -6,7 +6,7 @@ import { BoardArea } from './BoardArea';
 import { PlayerHandArea } from './PlayerHandArea';
 import { RoomChat } from './RoomChat';
 import { GameEndModal } from './GameEndModal';
-import { sortHand } from '../../utils/rummikubEngine';
+import { isValidSet, sortHand } from '../../utils/rummikubEngine';
 import { sounds } from '../../utils/sound';
 
 interface GameViewProps {
@@ -131,6 +131,103 @@ export const GameView: React.FC<GameViewProps> = ({
     }
   };
 
+  const commitBoardChange = (nextBoard: TileSet[], nextHand: Tile[]) => {
+    setHand(nextHand);
+    setBoard(nextBoard);
+    setSelectedTile(null);
+    if (socket) {
+      socket.emit('update_board', {
+        roomId: gameState.roomId,
+        newBoard: nextBoard,
+        myHand: nextHand,
+      });
+    }
+  };
+
+  const findAutoSet = (tile: Tile) => {
+    if (tile.isJoker) return [tile];
+
+    const sameNumber = hand.filter((candidate) => !candidate.isJoker && candidate.number === tile.number);
+    const group = sameNumber.filter(
+      (candidate, index, candidates) => candidates.findIndex((item) => item.color === candidate.color) === index
+    );
+
+    const sameColor = hand
+      .filter((candidate) => !candidate.isJoker && candidate.color === tile.color)
+      .sort((a, b) => a.number - b.number);
+    const tileIndex = sameColor.findIndex((candidate) => candidate.id === tile.id);
+    let run: Tile[] = [];
+    if (tileIndex >= 0) {
+      let start = tileIndex;
+      let end = tileIndex;
+      while (start > 0 && sameColor[start].number - sameColor[start - 1].number === 1) start -= 1;
+      while (end < sameColor.length - 1 && sameColor[end + 1].number - sameColor[end].number === 1) end += 1;
+      run = sameColor.slice(start, end + 1);
+    }
+
+    const candidates = [group, run].filter((candidate) => candidate.length >= 3);
+    return candidates.sort((a, b) => b.length - a.length)[0] || [tile];
+  };
+
+  const handleLongPressHandTile = (tile: Tile) => {
+    if (!isMyTurn) return;
+    const autoSet = findAutoSet(tile);
+    if (autoSet.length < 3) {
+      handleSelectHandTile(tile);
+      return;
+    }
+    sounds.playTilePlace();
+    const selectedIds = new Set(autoSet.map((candidate) => candidate.id));
+    const nextHand = hand.filter((candidate) => !selectedIds.has(candidate.id));
+    commitBoardChange([...board, autoSet], nextHand);
+  };
+
+  const handleDragStartTile = (tile: Tile, event: React.DragEvent) => {
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('text/tile-id', tile.id);
+    event.dataTransfer.setData('text/tile-source', 'hand');
+  };
+
+  const getDraggedTile = (tileId: string) => {
+    const handTile = hand.find((tile) => tile.id === tileId);
+    if (handTile) return { tile: handTile, sourceSetIndex: -1 };
+    for (let setIndex = 0; setIndex < board.length; setIndex += 1) {
+      const tile = board[setIndex].find((candidate) => candidate.id === tileId);
+      if (tile) return { tile, sourceSetIndex: setIndex };
+    }
+    return null;
+  };
+
+  const handleDropTileToSet = (targetSetIndex: number, tileId: string) => {
+    if (!isMyTurn) return;
+    const dragged = getDraggedTile(tileId);
+    if (!dragged) return;
+    const nextBoard = board.map((set) => [...set]);
+    if (dragged.sourceSetIndex >= 0) {
+      nextBoard[dragged.sourceSetIndex] = nextBoard[dragged.sourceSetIndex].filter((tile) => tile.id !== tileId);
+    }
+    nextBoard[targetSetIndex] = [...nextBoard[targetSetIndex], dragged.tile];
+    commitBoardChange(nextBoard.filter((set) => set.length > 0), hand.filter((tile) => tile.id !== tileId));
+  };
+
+  const handleDropTileToNewSet = (tileId: string) => {
+    if (!isMyTurn) return;
+    const dragged = getDraggedTile(tileId);
+    if (!dragged) return;
+    const nextBoard = board.map((set) => set.filter((tile) => tile.id !== tileId)).filter((set) => set.length > 0);
+    commitBoardChange([...nextBoard, [dragged.tile]], hand.filter((tile) => tile.id !== tileId));
+  };
+
+  const handleDropTileToHand = (tileId: string) => {
+    if (!isMyTurn) return;
+    const dragged = getDraggedTile(tileId);
+    if (!dragged || dragged.sourceSetIndex < 0) return;
+    const nextBoard = board
+      .map((set) => set.filter((tile) => tile.id !== tileId))
+      .filter((set) => set.length > 0);
+    commitBoardChange(nextBoard, [...hand, dragged.tile]);
+  };
+
   const handlePlaceTileToSet = (targetSetIndex: number) => {
     if (!selectedTile || !isMyTurn) return;
     sounds.playTilePlace();
@@ -144,17 +241,7 @@ export const GameView: React.FC<GameViewProps> = ({
       return set;
     });
 
-    setHand(newHand);
-    setBoard(newBoard);
-    setSelectedTile(null);
-
-    if (socket) {
-      socket.emit('update_board', {
-        roomId: gameState.roomId,
-        newBoard,
-        myHand: newHand,
-      });
-    }
+    commitBoardChange(newBoard, newHand);
   };
 
   const handleCreateNewSetWithTile = () => {
@@ -164,17 +251,7 @@ export const GameView: React.FC<GameViewProps> = ({
     const newHand = hand.filter((t) => t.id !== selectedTile.id);
     const newBoard = [...board, [selectedTile]];
 
-    setHand(newHand);
-    setBoard(newBoard);
-    setSelectedTile(null);
-
-    if (socket) {
-      socket.emit('update_board', {
-        roomId: gameState.roomId,
-        newBoard,
-        myHand: newHand,
-      });
-    }
+    commitBoardChange(newBoard, newHand);
   };
 
   const handleTileClickOnBoard = (setIndex: number, tileIndex: number) => {
@@ -189,16 +266,7 @@ export const GameView: React.FC<GameViewProps> = ({
 
     const newHand = [...hand, tile];
 
-    setBoard(newBoard);
-    setHand(newHand);
-
-    if (socket) {
-      socket.emit('update_board', {
-        roomId: gameState.roomId,
-        newBoard,
-        myHand: newHand,
-      });
-    }
+    commitBoardChange(newBoard, newHand);
   };
 
   // --- Turn Actions ---
@@ -334,6 +402,9 @@ export const GameView: React.FC<GameViewProps> = ({
               onPlaceTileToSet={handlePlaceTileToSet}
               onCreateNewSetWithTile={handleCreateNewSetWithTile}
               onTileClickOnBoard={handleTileClickOnBoard}
+              onDropTileToSet={handleDropTileToSet}
+              onDropTileToNewSet={handleDropTileToNewSet}
+              invalidSetCount={board.filter((set) => !isValidSet(set)).length}
             />
           </div>
 
@@ -354,6 +425,9 @@ export const GameView: React.FC<GameViewProps> = ({
               selectedTile={selectedTile}
               onSelectTile={handleSelectHandTile}
               onSetHand={setHand}
+              onLongPressTile={handleLongPressHandTile}
+              onDragStartTile={handleDragStartTile}
+              onDropTile={handleDropTileToHand}
               isMyTurn={isMyTurn}
               compact={true}
             />
