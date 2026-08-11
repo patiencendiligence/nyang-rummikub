@@ -9,6 +9,9 @@ interface PlayerHandAreaProps {
   selectedTile: Tile | null;
   onSelectTile: (tile: Tile) => void;
   onSetHand: (sortedHand: Tile[]) => void;
+  onLongPressTile: (tile: Tile) => void;
+  onDragStartTile: (tile: Tile, e: React.DragEvent) => void;
+  onDropTile: (tileId: string) => void;
   isMyTurn: boolean;
   compact?: boolean;
 }
@@ -19,6 +22,9 @@ export const PlayerHandArea: React.FC<PlayerHandAreaProps> = ({
   selectedTile,
   onSelectTile,
   onSetHand,
+  onLongPressTile,
+  onDragStartTile,
+  onDropTile,
   isMyTurn,
   compact = false,
 }) => {
@@ -80,8 +86,18 @@ export const PlayerHandArea: React.FC<PlayerHandAreaProps> = ({
           Rummikub
         </div>
 
+        <div
+          className="absolute inset-0 z-0"
+          onDragOver={(event) => event.preventDefault()}
+          onDrop={(event) => {
+            event.preventDefault();
+            const tileId = event.dataTransfer.getData('text/tile-id');
+            if (tileId) onDropTile(tileId);
+          }}
+        />
+
         {/* Hand Tiles List */}
-        <div className="flex flex-wrap items-center gap-1 sm:gap-1.5 overflow-y-auto max-h-[75px] sm:max-h-[110px] pr-0.5 py-0.5">
+        <div className="relative z-10 flex flex-wrap items-center gap-1 sm:gap-1.5 overflow-y-auto max-h-[75px] sm:max-h-[110px] pr-0.5 py-0.5">
           {hand.length === 0 ? (
             <div className="w-full text-center text-[10px] sm:text-xs font-black opacity-80 py-2">
               🎉 타일을 모두 사용했습니다! (승리 조건 충족)
@@ -95,6 +111,8 @@ export const PlayerHandArea: React.FC<PlayerHandAreaProps> = ({
                 size={compact ? 'sm' : 'md'}
                 isSelected={selectedTile?.id === tile.id}
                 onClick={() => onSelectTile(tile)}
+                onLongPress={() => onLongPressTile(tile)}
+                onDragStart={(event) => onDragStartTile(tile, event)}
               />
             ))
           )}
