@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { GameState, RoomSettings } from '../types/game';
 
 type CurrentView = 'lobby' | 'waiting' | 'game';
+type PendingRoomAction = { event: 'create_room' | 'join_room'; payload: object };
 
 interface UseRoomSessionOptions {
   isGeoBlocked: boolean;
@@ -12,10 +13,12 @@ interface UseRoomSessionOptions {
 
 export const useRoomSession = ({ isGeoBlocked, nickname, onGeoBlocked }: UseRoomSessionOptions) => {
   const [socket, setSocket] = useState<Socket | null>(null);
+  const [isConnected, setIsConnected] = useState(false);
   const [socketId, setSocketId] = useState('');
   const [currentView, setCurrentView] = useState<CurrentView>('lobby');
   const [gameState, setGameState] = useState<GameState | null>(null);
   const [kickedMessage, setKickedMessage] = useState<string | null>(null);
+  const pendingRoomActions = useRef<PendingRoomAction[]>([]);
 
   useEffect(() => {
     if (isGeoBlocked) return;
@@ -32,8 +35,16 @@ export const useRoomSession = ({ isGeoBlocked, nickname, onGeoBlocked }: UseRoom
       }
     };
 
-    roomSocket.on('connect', () => setSocketId(roomSocket.id || ''));
-    roomSocket.on('disconnect', () => setSocketId(''));
+    roomSocket.on('connect', () => {
+      setSocketId(roomSocket.id || '');
+      setIsConnected(true);
+      pendingRoomActions.current.forEach(({ event, payload }) => roomSocket.emit(event, payload));
+      pendingRoomActions.current = [];
+    });
+    roomSocket.on('disconnect', () => {
+      setSocketId('');
+      setIsConnected(false);
+    });
     roomSocket.on('geo_blocked', onGeoBlocked);
     roomSocket.on('room_joined', (data: { gameState: GameState }) => updateRoomView(data.gameState));
     roomSocket.on('room_updated', updateRoomView);
@@ -57,15 +68,32 @@ export const useRoomSession = ({ isGeoBlocked, nickname, onGeoBlocked }: UseRoom
       roomSocket.disconnect();
       setSocket(null);
       setSocketId('');
+      setIsConnected(false);
     };
   }, [isGeoBlocked]);
 
   const createRoom = useCallback((settings: RoomSettings) => {
-    socket?.emit('create_room', { nickname, settings });
+    const payload = { nickname, settings };
+    if (!socket) {
+      pendingRoomActions.current.push({ event: 'create_room', payload });
+    } else if (socket.connected) {
+      socket.emit('create_room', payload);
+    } else {
+      socket.once('connect', () => socket.emit('create_room', payload));
+    }
+    return true;
   }, [nickname, socket]);
 
   const joinRoom = useCallback((roomId: string) => {
-    socket?.emit('join_room', { roomId, nickname });
+    const payload = { roomId, nickname };
+    if (!socket) {
+      pendingRoomActions.current.push({ event: 'join_room', payload });
+    } else if (socket.connected) {
+      socket.emit('join_room', payload);
+    } else {
+      socket.once('connect', () => socket.emit('join_room', payload));
+    }
+    return true;
   }, [nickname, socket]);
 
   const leaveRoom = useCallback(() => {
@@ -78,6 +106,7 @@ export const useRoomSession = ({ isGeoBlocked, nickname, onGeoBlocked }: UseRoom
 
   return {
     socket,
+    isConnected,
     socketId,
     currentView,
     gameState,
