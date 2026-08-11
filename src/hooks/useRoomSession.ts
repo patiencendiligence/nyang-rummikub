@@ -5,6 +5,17 @@ import { GameState, RoomSettings } from '../types/game';
 type CurrentView = 'lobby' | 'waiting' | 'game';
 type PendingRoomAction = { event: 'create_room' | 'join_room'; payload: object };
 
+const DEFAULT_PRODUCTION_SOCKET_URL = 'https://nyang-rummikub.onrender.com';
+
+const getSocketUrl = () => {
+  const viteEnv = (import.meta as ImportMeta & {
+    env?: { VITE_SOCKET_URL?: string; DEV?: boolean };
+  }).env;
+  if (viteEnv?.VITE_SOCKET_URL) return viteEnv.VITE_SOCKET_URL;
+  if (viteEnv?.DEV) return window.location.origin;
+  return DEFAULT_PRODUCTION_SOCKET_URL;
+};
+
 interface UseRoomSessionOptions {
   isGeoBlocked: boolean;
   nickname: string;
@@ -23,7 +34,7 @@ export const useRoomSession = ({ isGeoBlocked, nickname, onGeoBlocked }: UseRoom
   useEffect(() => {
     if (isGeoBlocked) return;
 
-    const roomSocket = io({ transports: ['websocket', 'polling'] });
+    const roomSocket = io(getSocketUrl(), { transports: ['websocket', 'polling'] });
     setSocket(roomSocket);
 
     const updateRoomView = (nextGameState: GameState) => {
