@@ -1,10 +1,13 @@
 import React from 'react';
 import { Sun, Moon, BookOpen, BarChart3, UserCheck } from 'lucide-react';
 import { ThemeMode } from '../types/game';
+import { Language, useLanguage } from '../constants/language';
 
 interface HeaderProps {
   theme: ThemeMode;
   onToggleTheme: () => void;
+  language: Language;
+  onChangeLanguage: (language: Language) => void;
   nickname: string;
   onChangeNickname: () => void;
   onOpenRules: () => void;
@@ -14,12 +17,15 @@ interface HeaderProps {
 export const Header: React.FC<HeaderProps> = ({
   theme,
   onToggleTheme,
+  language,
+  onChangeLanguage,
   nickname,
   onChangeNickname,
   onOpenRules,
   onOpenDashboard,
 }) => {
   const isDefault = theme === 'default';
+  const { t } = useLanguage();
 
   return (
     <header className="w-full px-4 py-4 sm:px-8 sticky top-0 z-40">
@@ -41,7 +47,7 @@ export const Header: React.FC<HeaderProps> = ({
             />
           </div>
           <h1 className={`font-bold text-base sm:text-lg tracking-tight leading-tight hidden sm:block ${isDefault ? 'text-[#2D323E]' : 'text-[#222222]'}`}>
-            냥루미큐브 온라인
+            {t('brand')}
           </h1>
         </div>
 
@@ -55,10 +61,10 @@ export const Header: React.FC<HeaderProps> = ({
                 ? 'plush-pill text-[#3B4050] hover:opacity-90'
                 : 'glass-capsule text-[#222222] hover:bg-white/80'
             }`}
-            title="닉네임 변경"
+            title={t('nicknameChange')}
           >
             <UserCheck className="w-3.5 h-3.5 text-[#5A6072]" />
-            <span className="max-w-[70px] sm:max-w-[130px] truncate">{nickname || '닉네임 입력'}</span>
+            <span className="max-w-[70px] sm:max-w-[130px] truncate">{nickname || t('nicknamePlaceholder')}</span>
           </button>
 
           {/* Rules Modal Button */}
@@ -69,7 +75,7 @@ export const Header: React.FC<HeaderProps> = ({
                 ? 'plush-orb-btn'
                 : 'glass-orb-btn'
             }`}
-            title="게임 룰 설명"
+            title={t('rules')}
           >
             <BookOpen className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
           </button>
@@ -82,10 +88,26 @@ export const Header: React.FC<HeaderProps> = ({
                 ? 'plush-orb-btn'
                 : 'glass-orb-btn'
             }`}
-            title="전적 대시보드"
+            title={t('dashboard')}
           >
             <BarChart3 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
           </button>
+
+          <div className={`flex items-center p-0.5 rounded-full ${isDefault ? 'plush-pill' : 'glass-capsule'}`}>
+            {(['ko', 'en'] as Language[]).map((option) => (
+              <button
+                key={option}
+                type="button"
+                onClick={() => onChangeLanguage(option)}
+                aria-pressed={language === option}
+                className={`px-1.5 sm:px-2 py-1 rounded-full text-[10px] font-black transition-all ${
+                  language === option ? (isDefault ? 'plush-purple-btn text-white' : 'glass-gel-btn text-white') : 'opacity-60'
+                }`}
+              >
+                {option.toUpperCase()}
+              </button>
+            ))}
+          </div>
 
           {/* Theme Toggle Button */}
           <button
@@ -95,7 +117,7 @@ export const Header: React.FC<HeaderProps> = ({
                 ? 'plush-purple-btn hover:scale-105 text-white'
                 : 'glass-gel-btn text-white'
             }`}
-            title={isDefault ? '플러피 모드로 전환' : '라이트 모드로 전환'}
+            title={isDefault ? t('themeToDark') : t('themeToLight')}
           >
             {isDefault ? (
               <>

@@ -3,6 +3,7 @@ import confetti from 'canvas-confetti';
 import { Trophy, Home, X } from 'lucide-react';
 import { GameState, Player, ThemeMode } from '../../types/game';
 import { sounds } from '../../utils/sound';
+import { useLanguage } from '../../constants/language';
 
 interface GameEndModalProps {
   gameState: GameState;
@@ -22,6 +23,7 @@ export const GameEndModal: React.FC<GameEndModalProps> = ({
   onReturnToLobby,
 }) => {
   const isDefault = theme === 'default';
+  const { language } = useLanguage();
   const [showResultPopup, setShowResultPopup] = useState(true);
 
   const isIWin = Boolean(
@@ -64,7 +66,7 @@ export const GameEndModal: React.FC<GameEndModalProps> = ({
                   ? 'plush-debossed hover:opacity-80 text-[#2D323E]'
                   : 'glass-capsule hover:bg-white/40 text-[#1E3A8A]'
               }`}
-              aria-label="닫기"
+              aria-label={language === 'ko' ? '닫기' : 'Close'}
             >
               <X className="w-4 h-4 stroke-[2.5]" />
             </button>
@@ -79,7 +81,7 @@ export const GameEndModal: React.FC<GameEndModalProps> = ({
                   🎉 VICTORY 🎉
                 </span>
                 <h3 className={`text-2xl font-black tracking-tight ${isDefault ? 'embroidered-text' : ''}`}>
-                  축하합니다! 승리하셨습니다!
+                  {language === 'ko' ? '축하합니다! 승리하셨습니다!' : 'Congratulations! You won!'}
                 </h3>
                 <div
                   className={`w-full max-h-[260px] flex items-center justify-center overflow-hidden rounded-2xl p-3 ${
@@ -88,7 +90,7 @@ export const GameEndModal: React.FC<GameEndModalProps> = ({
                 >
                   <img
                     src="/win.png"
-                    alt="승리"
+                    alt={language === 'ko' ? '승리' : 'Victory'}
                     className="max-h-[230px] w-auto object-contain rounded-xl drop-shadow-md transform hover:scale-105 transition-transform"
                     onError={(e) => {
                       const target = e.currentTarget;
@@ -112,7 +114,7 @@ export const GameEndModal: React.FC<GameEndModalProps> = ({
                   GAME OVER
                 </span>
                 <h3 className={`text-2xl font-black tracking-tight text-rose-500 ${isDefault ? 'embroidered-text' : ''}`}>
-                  아쉽네요! 분발하세요! 🐱
+                  {language === 'ko' ? '아쉽네요! 분발하세요! 🐱' : 'Good game! Better luck next time! 🐱'}
                 </h3>
                 <div
                   className={`w-full max-h-[260px] flex items-center justify-center overflow-hidden rounded-2xl p-3 ${
@@ -121,7 +123,7 @@ export const GameEndModal: React.FC<GameEndModalProps> = ({
                 >
                   <img
                     src="/lose.png"
-                    alt="패배"
+                    alt={language === 'ko' ? '패배' : 'Defeat'}
                     className="max-h-[230px] w-auto object-contain rounded-xl drop-shadow-md transform hover:scale-105 transition-transform"
                     onError={(e) => {
                       const target = e.currentTarget;
@@ -141,7 +143,7 @@ export const GameEndModal: React.FC<GameEndModalProps> = ({
                 isDefault ? 'plush-purple-btn' : 'glass-gel-btn'
               }`}
             >
-              상세 점수 보기
+              {language === 'ko' ? '상세 점수 보기' : 'View final scores'}
             </button>
           </div>
         </div>
@@ -173,12 +175,12 @@ export const GameEndModal: React.FC<GameEndModalProps> = ({
               FINAL SCORE
             </span>
             <h3 className={`text-2xl sm:text-3xl font-black tracking-tight ${isDefault ? 'embroidered-text' : ''}`}>
-              🎉 {winner?.nickname || '승리자'} 승리!
+              🎉 {winner?.nickname || (language === 'ko' ? '승리자' : 'Winner')} {language === 'ko' ? '승리!' : 'wins!'}
             </h3>
             <p className="text-xs sm:text-sm mt-1.5 font-bold opacity-80">
               {winner
-                ? `${winner.nickname} 님이 손의 모든 타일을 제출하여 대결에서 승리했습니다!`
-                : '게임이 종료되었습니다.'}
+                ? language === 'ko' ? `${winner.nickname} 님이 손의 모든 타일을 제출하여 대결에서 승리했습니다!` : `${winner.nickname} played all their tiles and won the match!`
+                : language === 'ko' ? '게임이 종료되었습니다.' : 'The game has ended.'}
             </p>
           </div>
 
@@ -189,8 +191,8 @@ export const GameEndModal: React.FC<GameEndModalProps> = ({
             }`}
           >
             <h4 className="text-xs font-black border-b pb-2 border-black/10 opacity-75 flex items-center justify-between">
-              <span>최종 점수 현황</span>
-              <span className="text-[10px] font-bold">(남은 타일 벌점 계산)</span>
+              <span>{language === 'ko' ? '최종 점수 현황' : 'Final scores'}</span>
+              <span className="text-[10px] font-bold">({language === 'ko' ? '남은 타일 벌점 계산' : 'penalties from remaining tiles'})</span>
             </h4>
 
             {gameState.players.map((p) => {
@@ -202,7 +204,7 @@ export const GameEndModal: React.FC<GameEndModalProps> = ({
                   <span className="flex items-center gap-1.5">
                     <span className="text-base">{isWinner ? '👑' : '🐾'}</span>
                     <span className={isWinner ? 'text-amber-700 font-extrabold' : ''}>
-                      {p.nickname} {p.id === currentUserId && '(나)'}
+                      {p.nickname} {p.id === currentUserId && `(${language === 'ko' ? '나' : 'you'})`}
                     </span>
                   </span>
                   <span className={`px-2.5 py-0.5 rounded-full text-xs font-black ${
@@ -212,7 +214,7 @@ export const GameEndModal: React.FC<GameEndModalProps> = ({
                       ? 'bg-amber-100 text-amber-800 border border-amber-300'
                       : 'bg-rose-100 text-rose-700 border border-rose-300'
                   }`}>
-                    {score > 0 ? `+${score}` : score} 점
+                    {score > 0 ? `+${score}` : score}{language === 'ko' ? ' 점' : ''}
                   </span>
                 </div>
               );
@@ -225,7 +227,7 @@ export const GameEndModal: React.FC<GameEndModalProps> = ({
               isDefault ? 'plush-rose-btn' : 'glass-gel-btn'
             }`}
           >
-            <Home className="w-4 h-4 stroke-[2.5]" /> 대기실로 돌아가기
+            <Home className="w-4 h-4 stroke-[2.5]" /> {language === 'ko' ? '대기실로 돌아가기' : 'Return to lobby'}
           </button>
         </div>
       </div>

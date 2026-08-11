@@ -9,14 +9,19 @@ import { RulesModal } from './components/RulesModal';
 import { DashboardModal } from './components/DashboardModal';
 import { GeoBlockedView } from './components/GeoBlockedView';
 import { ThemeMode, GameState, RoomSettings } from './types/game';
+import { Language, LanguageProvider } from './constants/language';
 
 export default function App() {
   const [theme, setTheme] = useState<ThemeMode>(() => {
     return (localStorage.getItem('rummikub_theme') as ThemeMode) || 'default';
   });
 
+  const [language, setLanguage] = useState<Language>(() => {
+    return (localStorage.getItem('rummikub_language') as Language) || 'ko';
+  });
+
   const [nickname, setNickname] = useState<string>(() => {
-    return localStorage.getItem('rummikub_nickname') || `플레이어${Math.floor(100 + Math.random() * 900)}`;
+    return localStorage.getItem('rummikub_nickname') || `Player${Math.floor(100 + Math.random() * 900)}`;
   });
 
   const [showNickModal, setShowNickModal] = useState(false);
@@ -39,6 +44,11 @@ export default function App() {
     const nextTheme: ThemeMode = theme === 'default' ? 'dark' : 'default';
     setTheme(nextTheme);
     localStorage.setItem('rummikub_theme', nextTheme);
+  };
+
+  const handleChangeLanguage = (nextLanguage: Language) => {
+    setLanguage(nextLanguage);
+    localStorage.setItem('rummikub_language', nextLanguage);
   };
 
   // Nickname Update
@@ -153,15 +163,18 @@ export default function App() {
   }, [socket]);
 
   if (isGeoBlocked) {
-    return <GeoBlockedView />;
+    return <GeoBlockedView language={language} />;
   }
 
   return (
-    <ThemeWrapper theme={theme}>
+    <LanguageProvider language={language} setLanguage={handleChangeLanguage}>
+      <ThemeWrapper theme={theme}>
       {currentView !== 'game' && (
         <Header
           theme={theme}
           onToggleTheme={handleToggleTheme}
+          language={language}
+          onChangeLanguage={handleChangeLanguage}
           nickname={nickname}
           onChangeNickname={() => {
             setNewNickInput(nickname);
@@ -217,7 +230,7 @@ export default function App() {
           >
             <div className="flex items-center justify-between pb-1 border-b border-black/10">
               <h3 className={`font-black text-base tracking-tight ${theme === 'default' ? 'embroidered-text' : ''}`}>
-                닉네임 설정
+                {language === 'ko' ? '닉네임 설정' : 'Nickname settings'}
               </h3>
               <button
                 type="button"
@@ -233,7 +246,7 @@ export default function App() {
                 value={newNickInput}
                 onChange={(e) => setNewNickInput(e.target.value)}
                 maxLength={12}
-                placeholder="닉네임 입력 (최대 12자)"
+                placeholder={language === 'ko' ? '닉네임 입력 (최대 12자)' : 'Enter nickname (up to 12 characters)'}
                 className={`w-full px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all outline-none ${
                   theme === 'default'
                     ? 'plush-debossed text-[#2D323E] placeholder-[#5A6072]/60'
@@ -250,7 +263,7 @@ export default function App() {
                       : 'glass-capsule text-[#1E3A8A]'
                   }`}
                 >
-                  취소
+                  {language === 'ko' ? '취소' : 'Cancel'}
                 </button>
                 <button
                   type="submit"
@@ -258,7 +271,7 @@ export default function App() {
                     theme === 'default' ? 'plush-purple-btn' : 'glass-gel-btn'
                   }`}
                 >
-                  저장
+                  {language === 'ko' ? '저장' : 'Save'}
                 </button>
               </div>
             </form>
@@ -277,7 +290,7 @@ export default function App() {
             }`}
           >
             <span className="text-3xl block animate-bounce">🚫</span>
-            <h4 className="font-extrabold text-base text-red-500">방 퇴장 알림</h4>
+            <h4 className="font-extrabold text-base text-red-500">{language === 'ko' ? '방 퇴장 알림' : 'Removed from room'}</h4>
             <p className="text-xs font-bold opacity-80 mb-2">{kickedMessage}</p>
             <button
               onClick={() => setKickedMessage(null)}
@@ -285,7 +298,7 @@ export default function App() {
                 theme === 'default' ? 'plush-rose-btn' : 'glass-gel-btn'
               }`}
             >
-              확인
+              {language === 'ko' ? '확인' : 'OK'}
             </button>
           </div>
         </div>
@@ -298,6 +311,7 @@ export default function App() {
       {showDashboard && (
         <DashboardModal theme={theme} onClose={() => setShowDashboard(false)} />
       )}
-    </ThemeWrapper>
+      </ThemeWrapper>
+    </LanguageProvider>
   );
 }

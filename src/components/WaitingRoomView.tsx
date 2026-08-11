@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Socket } from 'socket.io-client';
 import { Crown, Share2, UserX, Settings, Play, LogOut, CheckCircle2 } from 'lucide-react';
 import { GameState, ThemeMode } from '../types/game';
+import { useLanguage } from '../constants/language';
 
 interface WaitingRoomViewProps {
   gameState: GameState;
@@ -26,6 +27,7 @@ export const WaitingRoomView: React.FC<WaitingRoomViewProps> = ({
   onLeaveRoom,
 }) => {
   const isDefault = theme === 'default';
+  const { language, t } = useLanguage();
   const isHost = gameState.hostId === currentUserId;
 
   const [copied, setCopied] = useState(false);
@@ -84,11 +86,11 @@ export const WaitingRoomView: React.FC<WaitingRoomViewProps> = ({
               ROOM CODE: {gameState.roomId}
             </span>
             <span className={`text-xs font-black ${isDefault ? 'text-[#6E5D57]' : 'text-[#444444]'}`}>
-              ({gameState.players.length} / {gameState.settings.maxPlayers}명 대기 중)
+              ({gameState.players.length} / {gameState.settings.maxPlayers} {language === 'ko' ? '명 대기 중' : 'waiting'})
             </span>
           </div>
           <h2 className="text-2xl font-black tracking-tight">
-            게임 대기실
+            {t('waitingRoom')}
           </h2>
         </div>
 
@@ -105,11 +107,11 @@ export const WaitingRoomView: React.FC<WaitingRoomViewProps> = ({
         >
           {copied ? (
             <>
-              <CheckCircle2 className="w-4 h-4" /> 링크 복사 완료!
+              <CheckCircle2 className="w-4 h-4" /> {t('copied')}
             </>
           ) : (
             <>
-              <Share2 className="w-4 h-4" /> 초대 링크 복사
+              <Share2 className="w-4 h-4" /> {t('copyInvite')}
             </>
           )}
         </button>
@@ -126,9 +128,9 @@ export const WaitingRoomView: React.FC<WaitingRoomViewProps> = ({
         >
           <div className="flex items-center justify-between border-b border-black/5 pb-3">
             <h3 className="font-black text-base flex items-center gap-2">
-              참여자 목록 ({gameState.players.length}/{gameState.settings.maxPlayers})
+              {t('participants')} ({gameState.players.length}/{gameState.settings.maxPlayers})
             </h3>
-            {isHost && <span className={`text-xs font-black ${isDefault ? 'text-[#533E75]' : 'text-[#2563EB]'}`}>👑 당신은 방장입니다</span>}
+            {isHost && <span className={`text-xs font-black ${isDefault ? 'text-[#533E75]' : 'text-[#2563EB]'}`}>👑 {language === 'ko' ? '당신은 방장입니다' : 'You are the host'}</span>}
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -163,10 +165,10 @@ export const WaitingRoomView: React.FC<WaitingRoomViewProps> = ({
                     </div>
                     <div>
                       <span className="font-black text-sm block leading-tight">
-                        {p.nickname} {isSelf && '(나)'}
+                        {p.nickname} {isSelf && `(${t('you')})`}
                       </span>
                       <span className="text-[10px] font-bold opacity-75">
-                        {p.isHost ? '방장' : '참여자'}
+                        {p.isHost ? t('host') : t('participant')}
                       </span>
                     </div>
                   </div>
@@ -176,7 +178,7 @@ export const WaitingRoomView: React.FC<WaitingRoomViewProps> = ({
                     <button
                       onClick={() => setKickTarget({ id: p.id, name: p.nickname })}
                       className="p-1.5 rounded-xl bg-red-100 hover:bg-red-200 text-red-600 transition-colors font-black"
-                      title="강제 퇴장"
+                      title={t('kick')}
                     >
                       <UserX className="w-4 h-4" />
                     </button>
@@ -193,7 +195,7 @@ export const WaitingRoomView: React.FC<WaitingRoomViewProps> = ({
                   isDefault ? 'border-[#C8BFAD]' : 'border-[#6FA8FF]'
                 }`}
               >
-                <span className="text-xs font-black">빈 자리 (초대 대기중...)</span>
+                <span className="text-xs font-black">{t('emptySlot')}</span>
               </div>
             ))}
           </div>
@@ -209,12 +211,12 @@ export const WaitingRoomView: React.FC<WaitingRoomViewProps> = ({
             }`}
           >
             <h3 className="font-black text-sm flex items-center gap-1.5 border-b border-black/5 pb-2">
-              <Settings className="w-4 h-4" /> 방 설정 {isHost ? '(방장 전용)' : ''}
+              <Settings className="w-4 h-4" /> {t('roomSettings')} {isHost ? `(${t('hostOnly')})` : ''}
             </h3>
 
             {/* Max Players setting */}
             <div>
-              <label className="text-xs font-black block mb-1">인원 제한</label>
+              <label className="text-xs font-black block mb-1">{t('maxPlayers')}</label>
               <div className="grid grid-cols-3 gap-1.5">
                 {[2, 3, 4].map((num) => (
                   <button
@@ -231,7 +233,7 @@ export const WaitingRoomView: React.FC<WaitingRoomViewProps> = ({
                         : 'glass-capsule text-[#1E3A8A]'
                     } ${num < gameState.players.length ? 'opacity-40 cursor-not-allowed' : ''}`}
                   >
-                    {num}명
+                    {num}{language === 'ko' ? '명' : ''}
                   </button>
                 ))}
               </div>
@@ -239,7 +241,7 @@ export const WaitingRoomView: React.FC<WaitingRoomViewProps> = ({
 
             {/* Time limit setting */}
             <div>
-              <label className="text-xs font-black block mb-1">턴 제한시간</label>
+              <label className="text-xs font-black block mb-1">{t('turnTime')}</label>
               <div className="grid grid-cols-3 gap-1.5">
                 {[30, 60, 90].map((sec) => (
                   <button
@@ -256,7 +258,7 @@ export const WaitingRoomView: React.FC<WaitingRoomViewProps> = ({
                         : 'glass-capsule text-[#1E3A8A]'
                     }`}
                   >
-                    {sec}초
+                    {sec}{language === 'ko' ? '초' : 's'}
                   </button>
                 ))}
               </div>
@@ -267,7 +269,6 @@ export const WaitingRoomView: React.FC<WaitingRoomViewProps> = ({
           <div className="flex flex-col gap-2 mt-auto">
             {isHost ? (
               <button
-                onClick={handleStartGame}
                 disabled={gameState.players.length < 2}
                 className={`w-full py-3.5 rounded-2xl font-black text-sm flex items-center justify-center gap-2 shadow-lg transition-all active:scale-95 ${
                   gameState.players.length >= 2
@@ -278,11 +279,11 @@ export const WaitingRoomView: React.FC<WaitingRoomViewProps> = ({
                 }`}
               >
                 <Play className="w-4 h-4 fill-current" />
-                {gameState.players.length < 2 ? '2명 이상 참여시 시작 가능' : '게임 시작하기'}
+                {gameState.players.length < 2 ? t('needPlayers') : t('startGame')}
               </button>
             ) : (
               <div className="text-center p-3 rounded-2xl bg-amber-50 border border-amber-200 text-amber-800 text-xs font-black shadow-sm">
-                방장이 게임을 시작하기를 기다리는 중입니다...
+                {t('waitingHost')}
               </div>
             )}
 
@@ -294,7 +295,7 @@ export const WaitingRoomView: React.FC<WaitingRoomViewProps> = ({
                   : 'glass-capsule text-[#1E3A8A] hover:bg-red-50 hover:text-red-600'
               }`}
             >
-              <LogOut className="w-3.5 h-3.5" /> 방 나가기
+              <LogOut className="w-3.5 h-3.5" /> {t('leaveRoom')}
             </button>
           </div>
         </div>
@@ -311,9 +312,9 @@ export const WaitingRoomView: React.FC<WaitingRoomViewProps> = ({
             }`}
           >
             <UserX className="w-10 h-10 mx-auto text-red-500 mb-2" />
-            <h4 className="font-black text-base mb-1">강퇴 확인</h4>
+            <h4 className="font-black text-base mb-1">{t('kick')}</h4>
             <p className="text-xs mb-4 font-bold opacity-80">
-              <strong className="text-red-600">&apos;{kickTarget.name}&apos;</strong> 님을 내보내시겠습니까?
+              <strong className="text-red-600">&apos;{kickTarget.name}&apos;</strong>{language === 'ko' ? ' 님을 내보내시겠습니까?' : t('kickConfirm')}
             </p>
             <div className="flex items-center gap-2">
               <button
@@ -322,13 +323,13 @@ export const WaitingRoomView: React.FC<WaitingRoomViewProps> = ({
                   isDefault ? 'plush-pill text-[#533E75]' : 'glass-capsule text-[#1E3A8A]'
                 }`}
               >
-                취소
+                {t('cancel')}
               </button>
               <button
                 onClick={handleConfirmKick}
                 className="flex-1 py-2 rounded-xl text-xs font-black bg-red-600 text-white shadow-md"
               >
-                강퇴하기
+                {t('kick')}
               </button>
             </div>
           </div>
