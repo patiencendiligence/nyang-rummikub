@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Socket } from 'socket.io-client';
 import { Plus, Users, Send, MessageSquare, Play, Wifi, Droplets } from 'lucide-react';
 import { ThemeMode, RoomSettings, ChatMessage } from '../types/game';
+import { useLanguage } from '../constants/language';
 
 interface LobbyViewProps {
   socket: Socket | null;
@@ -27,6 +28,7 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
   onCreateRoom,
 }) => {
   const isDefault = theme === 'default';
+  const { language, t } = useLanguage();
 
   const [roomsList, setRoomsList] = useState<RoomItem[]>([]);
   const [roomCodeInput, setRoomCodeInput] = useState('');
@@ -90,13 +92,13 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
                 isDefault ? 'plush-rose-badge' : 'glass-capsule text-[#222222]'
               }`}
             >
-              <Wifi className="w-3.5 h-3.5" /> 실시간 멀티플레이어
+              <Wifi className="w-3.5 h-3.5" /> {t('multiplayer')}
             </span>
             <h2 className={`text-2xl sm:text-3xl font-bold tracking-tight ${isDefault ? 'text-[#2D323E]' : 'text-[#222222]'}`}>
-              함께 즐기는 루미큐브
+              {t('lobbyTitle')}
             </h2>
             <p className={`text-xs sm:text-sm mt-1.5 font-medium max-w-md ${isDefault ? 'text-[#5A6072]' : 'text-[#222222]'}`}>
-              고유 방 코드를 친구를 초대하거나 대기 중인 방에 접속해 실시간으로 대결을 시작하세요!
+              {t('lobbyDescription')}
             </p>
           </div>
 
@@ -108,7 +110,7 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
                 : 'glass-gel-btn'
             }`}
           >
-            <Plus className="w-5 h-5 stroke-[3]" /> 방 만들기
+            <Plus className="w-5 h-5 stroke-[3]" /> {t('createRoom')}
           </button>
         </div>
 
@@ -123,7 +125,7 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
             type="text"
             value={roomCodeInput}
             onChange={(e) => setRoomCodeInput(e.target.value.toUpperCase())}
-            placeholder="방 코드 6자리 입력 (예: RUM123)"
+            placeholder={t('roomCodePlaceholder')}
             maxLength={8}
             className={`flex-1 w-full px-5 py-3.5 rounded-2xl text-sm font-bold outline-none tracking-wider transition-all ${
               isDefault
@@ -139,14 +141,14 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
                 : 'glass-gel-btn'
             }`}
           >
-            입장하기
+            {t('join')}
           </button>
         </div>
 
         {/* Active Waiting Rooms List */}
         <div>
           <h3 className={`text-sm font-bold mb-3 flex items-center gap-2 ${isDefault ? 'text-[#2D323E]' : 'text-[#222222]'}`}>
-            <Users className="w-4 h-4" /> 대기 중인 방 목록 ({roomsList.length})
+            <Users className="w-4 h-4" /> {t('waitingRooms')} ({roomsList.length})
           </h3>
 
           {roomsList.length === 0 ? (
@@ -166,10 +168,10 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
                 <Droplets className="w-6 h-6" />
               </div>
               <p className={`font-bold text-sm ${isDefault ? 'text-[#2D323E]' : 'text-[#222222]'}`}>
-                현재 생성된 대기 방이 없습니다.
+                {t('noRooms')}
               </p>
               <p className={`text-xs font-semibold mt-1 ${isDefault ? 'text-[#5A6072]' : 'text-[#444444]'}`}>
-                상단의 &apos;방 만들기&apos; 버튼으로 새로운 방을 생성해 보세요!
+                {t('createRoomHint')}
               </p>
             </div>
           ) : (
@@ -191,11 +193,11 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
                           isDefault ? 'plush-pill text-[#3B4050]' : 'glass-capsule text-[#222222]'
                         }`}
                       >
-                        {room.hostName}의 방
+                        {room.hostName}{t('roomOf')}
                       </span>
                     </div>
                     <p className={`text-xs font-semibold mt-1 ${isDefault ? 'text-[#5A6072]' : 'text-[#444444]'}`}>
-                      인원: {room.playersCount} / {room.maxPlayers} 명
+                      {t('players')}: {room.playersCount} / {room.maxPlayers}
                     </p>
                   </div>
 
@@ -207,7 +209,7 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
                         : 'glass-gel-btn'
                     }`}
                   >
-                    참여
+                    {t('participate')}
                   </button>
                 </div>
               ))}
@@ -229,7 +231,7 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
           <div className="p-4 border-b border-black/5 font-bold text-sm flex items-center justify-between">
             <div className="flex items-center gap-2">
               <MessageSquare className={`w-4 h-4 ${isDefault ? 'text-[#3B4050]' : 'text-[#222222]'}`} />
-              <span className={isDefault ? 'text-[#2D323E]' : 'text-[#222222]'}>대기실 광장 채팅</span>
+              <span className={isDefault ? 'text-[#2D323E]' : 'text-[#222222]'}>{t('lobbyChat')}</span>
             </div>
             <span
               className={`text-[10px] px-2.5 py-0.5 font-bold ${
@@ -238,7 +240,7 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
                   : 'glass-pink-badge'
               }`}
             >
-              채널성
+              {t('channel')}
             </span>
           </div>
 
@@ -253,7 +255,7 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
             {lobbyChats.length === 0 ? (
               <div className="m-auto text-center p-4">
                 <p className={`text-xs font-semibold ${isDefault ? 'text-[#8A90A0]' : 'text-[#444444]'}`}>
-                  대기 메시지가 없습니다. 자유롭게 대화를 나누어 보세요!
+                  {t('noChat')}
                 </p>
               </div>
             ) : (
@@ -285,7 +287,7 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
               type="text"
               value={chatInput}
               onChange={(e) => setChatInput(e.target.value)}
-              placeholder="대기실 채팅 메시지..."
+              placeholder={t('chatPlaceholder')}
               maxLength={100}
               className={`flex-1 px-3.5 py-2.5 rounded-xl text-xs font-bold outline-none ${
                 isDefault
@@ -316,14 +318,14 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
             }`}
           >
             <h3 className="text-xl font-black mb-4 flex items-center gap-2">
-              <Play className={`w-5 h-5 ${isDefault ? 'text-[#533E75]' : 'text-[#222222]'}`} /> 새 게임 방 만들기
+              <Play className={`w-5 h-5 ${isDefault ? 'text-[#533E75]' : 'text-[#222222]'}`} /> {t('newGameRoom')}
             </h3>
 
             <form onSubmit={handleCreateSubmit} className="space-y-4">
               {/* Max Players selection */}
               <div>
                 <label className="block text-xs font-black mb-1.5 opacity-90">
-                  최대 참여 인원 (2~4명)
+                  {t('maxPlayers')}
                 </label>
                 <div className="grid grid-cols-3 gap-2">
                   {[2, 3, 4].map((num) => (
@@ -341,7 +343,7 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
                           : 'glass-capsule text-[#222222]'
                       }`}
                     >
-                      {num}명
+                      {num}{language === 'ko' ? '명' : ''}
                     </button>
                   ))}
                 </div>
@@ -350,7 +352,7 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
               {/* Turn Time limit selection */}
               <div>
                 <label className="block text-xs font-black mb-1.5 opacity-90">
-                  턴 제한 시간
+                  {t('turnTime')}
                 </label>
                 <div className="grid grid-cols-3 gap-2">
                   {[30, 60, 90].map((sec) => (
@@ -368,7 +370,7 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
                           : 'glass-capsule text-[#222222]'
                       }`}
                     >
-                      {sec}초
+                      {sec}{language === 'ko' ? '초' : 's'}
                     </button>
                   ))}
                 </div>
@@ -383,7 +385,7 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
                     isDefault ? 'plush-pill text-[#533E75]' : 'glass-capsule text-[#222222]'
                   }`}
                 >
-                  취소
+                  {t('cancel')}
                 </button>
                 <button
                   type="submit"
@@ -391,7 +393,7 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
                     isDefault ? 'plush-rose-btn' : 'glass-gel-btn'
                   }`}
                 >
-                  생성하기
+                  {t('create')}
                 </button>
               </div>
             </form>
