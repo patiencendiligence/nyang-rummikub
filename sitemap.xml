@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" href="/favicon.ico" sizes="any" />
+    <link rel="apple-touch-icon" href="/icon192.webp" />
+    <!-- Primary SEO -->
+    <title>냥 루미큐브 온라인 - 회원가입 없이 무료로 즐기는 루미큐브</title>
+    <meta name="description" content="설치나 회원가입 없이 브라우저에서 바로 즐기는 무료 온라인 루미큐브. 방을 만들어 친구를 초대하거나 대기 중인 방에 입장해 실시간으로 대결하세요." />
+    <meta name="keywords" content="루미큐브, 온라인 루미큐브, 루미큐브 무료, 루미큐브 게임, 루미큐브 온라인, 냥루미큐브, rummikub online" />
+    <meta name="robots" content="index, follow" />
+    <link rel="canonical" href="https://nyang-rummikub.onrender.com/" />
+    <!-- Search engine site verification: replace with the codes issued by each console -->
+    <!-- Google Search Console -->
+    <!-- <meta name="google-site-verification" content="여기에_구글서치콘솔_발급코드" /> -->
+    <!-- Naver 서치어드바이저 -->
+    <!-- <meta name="naver-site-verification" content="여기에_네이버서치어드바이저_발급코드" /> -->
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="냥 루미큐브 온라인" />
+    <meta property="og:title" content="냥 루미큐브 온라인 - 회원가입 없이 무료로 즐기는 루미큐브" />
+    <meta property="og:description" content="설치나 회원가입 없이 브라우저에서 바로 즐기는 무료 온라인 루미큐브. 친구와 실시간으로 대결해보세요." />
+    <meta property="og:url" content="https://nyang-rummikub.onrender.com/" />
+    <meta property="og:image" content="https://nyang-rummikub.onrender.com/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:locale" content="ko_KR" />
+
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="냥 루미큐브 온라인 - 무료 온라인 루미큐브" />
+    <meta name="twitter:description" content="설치나 회원가입 없이 브라우저에서 바로 즐기는 무료 온라인 루미큐브." />
+    <meta name="twitter:image" content="https://nyang-rummikub.onrender.com/og-image.png" />
+
+    <!-- Structured Data -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebApplication",
+      "name": "냥 루미큐브 온라인",
+      "alternateName": "Nyang Rummikub Online",
+      "description": "설치나 회원가입 없이 브라우저에서 바로 즐기는 무료 온라인 루미큐브. 친구와 실시간 멀티플레이어로 대결하세요.",
+      "url": "https://nyang-rummikub.onrender.com/",
+      "applicationCategory": "GameApplication",
+      "operatingSystem": "Any (Web Browser)",
+      "inLanguage": ["ko", "en"],
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "KRW"
+      }
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "냥 루미큐브 온라인은 무료인가요?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "네, 냥 루미큐브 온라인은 설치나 회원가입 없이 브라우저에서 바로 무료로 즐길 수 있는 온라인 루미큐브 게임입니다."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "루미큐브는 몇 명이서 할 수 있나요?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "냥 루미큐브 온라인은 방을 만들어 2명에서 4명까지 실시간으로 함께 플레이할 수 있습니다."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "루미큐브 규칙이 궁금해요.",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "루미큐브는 숫자 타일을 연속된 수열(런)이나 같은 숫자 그룹(그룹)으로 배열해, 손에 든 타일을 가장 먼저 모두 내려놓는 사람이 승리하는 보드게임입니다. 게임 내 '규칙 보기' 메뉴에서 자세한 규칙을 확인할 수 있습니다."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "친구를 초대해서 같이 할 수 있나요?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "네, 방을 만든 뒤 초대 코드나 초대 링크를 친구에게 공유하면 같은 방에 입장해 함께 플레이할 수 있습니다."
+          }
+        }
+      ]
+    }
+    </script>
+    <meta name="google-site-verification" content="DOeyngHaaAmsRccCCcjyhzGYJ0EUHMd95vR6VnWM0wE" />
+    <meta name="naver-site-verification" content="b407419bbb0ea63a9bdc9a588429d4be4fde8c34" />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+
