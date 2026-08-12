@@ -19,6 +19,9 @@ const CAT_AVATARS = [
   '/avatars/profile4.webp',
 ];
 
+// apps-in-toss.config.ts의 appName과 반드시 동일해야 해요.
+const APPS_IN_TOSS_APP_NAME = 'nyang-rummikub';
+
 export const WaitingRoomView: React.FC<WaitingRoomViewProps> = ({
   gameState,
   socket,
@@ -35,7 +38,34 @@ export const WaitingRoomView: React.FC<WaitingRoomViewProps> = ({
 
   const shareUrl = `${window.location.origin}/?room=${gameState.roomId}`;
 
-  const handleCopyLink = () => {
+  const handleCopyLink = async () => {
+    // 1) 앱인토스(Toss 앱) WebView 안에서 실행 중인지 확인해요.
+    //    일반 브라우저에서는 @apps-in-toss/web-framework 호출이 실패하므로
+    //    catch로 빠져 아래 클립보드 복사(fallback)를 사용해요.
+    try {
+      const { getOperationalEnvironment, getTossShareLink, share } = await import(
+        '@apps-in-toss/web-framework'
+      );
+      getOperationalEnvironment(); // Toss WebView가 아니면 여기서 throw됨
+
+      // room을 쿼리 파라미터로 담아 딥링크를 구성해요. (하위 경로 X, 쿼리 파라미터만 사용)
+      const deepLink = `intoss://${APPS_IN_TOSS_APP_NAME}?room=${gameState.roomId}`;
+      const ogImageUrl = `${window.location.origin}/icon192.webp`;
+
+      // getTossShareLink: 딥링크를 토스 앱에서 바로 열 수 있는 공유 링크로 변환
+      const tossShareLink = await getTossShareLink(deepLink, ogImageUrl);
+
+      // share: 네이티브 공유 시트를 열어 카카오톡/문자 등으로 전달
+      await share({ message: tossShareLink });
+
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+      return;
+    } catch {
+      // 앱인토스 WebView가 아니거나(=일반 브라우저) 공유 링크 생성에 실패한 경우
+    }
+
+    // 2) 일반 웹 fallback: 그냥 웹 URL을 클립보드에 복사
     navigator.clipboard.writeText(shareUrl);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
