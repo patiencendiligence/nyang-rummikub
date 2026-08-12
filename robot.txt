@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://nyang-rummikub.onrender.com/sitemap.xml
