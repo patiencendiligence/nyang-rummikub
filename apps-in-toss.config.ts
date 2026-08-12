@@ -1,7 +1,7 @@
 import { defineConfig } from '@apps-in-toss/web-framework/config';
 
 export default defineConfig({
-  appName: 'nyang-rummikub',
+  appName: 'nyangrummikub',
   brand: {
     primaryColor: '#3182F6',
   },
