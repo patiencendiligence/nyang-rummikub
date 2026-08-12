@@ -15,8 +15,12 @@ import { useGeoAccess } from './hooks/useGeoAccess';
 import { usePersistentPreferences } from './hooks/usePersistentPreferences';
 import { useRoomSession } from './hooks/useRoomSession';
 import { useInvitedRoomId } from './hooks/useInvitedRoomId';
+import { useAutoDeviceOrientation } from './hooks/useAutoDeviceOrientation';
 
 export default function App() {
+  // 앱인토스 미니앱에서 기기를 회전하면 화면도 같은 방향으로 자동 전환
+  useAutoDeviceOrientation();
+
   const { theme, language, nickname, toggleTheme, changeLanguage, saveNickname } = usePersistentPreferences();
   const { isGeoBlocked, setIsGeoBlocked } = useGeoAccess();
   const {
