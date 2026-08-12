@@ -7,4 +7,10 @@ export default defineConfig({
   },
   permissions: [],
   webBundleDir: 'dist',
+  navigationBar: {
+    transparentBackground: true 
+  },
+  webViewProps: {
+    type: 'game',
+  },
 });
