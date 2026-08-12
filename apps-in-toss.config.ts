@@ -8,9 +8,9 @@ export default defineConfig({
   permissions: [],
   webBundleDir: 'dist',
   navigationBar: {
-    transparentBackground: true 
+    transparentBackground: true,
   },
-  webViewProps: {
-    type: 'game',
+  webView: {
+    allowsInlineMediaPlayback: true,
   },
 });

@@ -331,7 +331,7 @@ export const GameView: React.FC<GameViewProps> = ({
 
       {/* Top Bar: Timer, Tile Pool, Action Text, Leave Button */}
       <div
-        className={`w-full py-1.5 px-3 sm:px-4 rounded-2xl flex items-center justify-between gap-2 shadow-md shrink-0 transition-all`}
+        className={`w-full py-2 px-3 sm:px-4 rounded-[15px] flex items-center justify-between gap-2 shadow-md shrink-0 transition-all`}
       >
         {/* Left: Leave Lobby & Tile Pool Count */}
         <div className="flex items-center gap-2 shrink-0">
@@ -358,12 +358,15 @@ export const GameView: React.FC<GameViewProps> = ({
 
         {/* Center: Timer & Turn Banner */}
         <div className="flex items-center gap-2 flex-1 max-w-xs sm:max-w-sm justify-center">
+          {isMyTurn && (
+            <span className="text-[10px] sm:text-xs font-black text-[#2D323E] truncate">내 차례입니다.</span>
+          )}
           <Clock
             className={`w-4 h-4 shrink-0 ${
               timeLeft <= 10 ? 'text-red-500 animate-bounce' : 'text-amber-500'
             }`}
           />
-          <div className="flex-1 max-w-[140px] sm:max-w-[200px]">
+          <div className="flex-1 max-w-[120px] sm:max-w-[180px]">
             <div
               className={`w-full h-2.5 rounded-full overflow-hidden p-0.5 ${
                 isDefault ? 'plush-debossed' : 'bg-white/60 border border-white'
@@ -394,11 +397,12 @@ export const GameView: React.FC<GameViewProps> = ({
         {/* CENTER COLUMN: Main Table Board & Bottom Rack */}
         <div className="flex-1 flex flex-col justify-between min-w-0 h-full gap-1 overflow-hidden">
           {/* Main Board Table Area */}
-          <div className="flex-1 min-h-0 overflow-y-auto rounded-2xl">
+          <div className="flex-1 min-h-0 overflow-hidden rounded-[15px]">
             <BoardArea
               board={board}
               theme={theme}
               selectedTile={selectedTile}
+              isMyTurn={isMyTurn}
               onPlaceTileToSet={handlePlaceTileToSet}
               onCreateNewSetWithTile={handleCreateNewSetWithTile}
               onTileClickOnBoard={handleTileClickOnBoard}
@@ -409,13 +413,15 @@ export const GameView: React.FC<GameViewProps> = ({
           </div>
 
           {/* Action Log / Status Banner */}
-          <div
-            className={`text-[10px] sm:text-[11px] font-black p-1 rounded-xl text-center truncate shrink-0 ${
-              isDefault ? 'plush-debossed text-[#2D323E]' : 'glass-capsule text-[#1E3A8A]'
-            }`}
-          >
-            {gameState.lastActionText}
-          </div>
+          {isMyTurn && (
+            <div
+              className={`text-[10px] sm:text-[11px] font-black p-1 rounded-[15px] text-center truncate shrink-0 ${
+                isDefault ? 'plush-debossed text-[#2D323E]' : 'glass-capsule text-[#1E3A8A]'
+              }`}
+            >
+              {selectedTile ? '여기에 타일 놓기' : '여기에 타일 놓기'}
+            </div>
+          )}
 
           {/* Bottom Player Rack Tray */}
           <div className="shrink-0">

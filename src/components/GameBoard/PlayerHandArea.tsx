@@ -76,7 +76,7 @@ export const PlayerHandArea: React.FC<PlayerHandAreaProps> = ({
 
       {/* Theme Cushion Hand Tray Body */}
       <div
-        className={`w-full rounded-xl sm:rounded-2xl p-1 sm:p-2 relative flex flex-col justify-center min-h-[52px] sm:min-h-[80px] max-h-[85px] sm:max-h-[125px] overflow-hidden shadow-xl transition-all ${
+        className={`w-full rounded-[15px] p-1 sm:p-2 relative flex flex-col justify-center min-h-[60px] sm:min-h-[80px] max-h-[90px] sm:max-h-[120px] overflow-hidden shadow-xl transition-all ${
           isDefault
             ? 'plush-cushion text-[#2D323E]'
             : 'rain-glass-card glass-shine text-[#1E3A8A]'

@@ -2,12 +2,12 @@ import React from 'react';
 import { TileSet, Tile, ThemeMode } from '../../types/game';
 import { TileComponent } from '../TileComponent';
 import { isValidSet } from '../../utils/rummikubEngine';
-import { Plus } from 'lucide-react';
 
 interface BoardAreaProps {
   board: TileSet[];
   theme: ThemeMode;
   selectedTile: Tile | null;
+  isMyTurn: boolean;
   onPlaceTileToSet: (setIndex: number) => void;
   onCreateNewSetWithTile: () => void;
   onTileClickOnBoard: (setIndex: number, tileIndex: number) => void;
@@ -20,6 +20,7 @@ export const BoardArea: React.FC<BoardAreaProps> = ({
   board,
   theme,
   selectedTile,
+  isMyTurn,
   onPlaceTileToSet,
   onCreateNewSetWithTile,
   onTileClickOnBoard,
@@ -31,37 +32,44 @@ export const BoardArea: React.FC<BoardAreaProps> = ({
 
   return (
     <div
-      className={`w-full h-full p-1.5 sm:p-3 flex flex-col justify-between relative transition-all overflow-hidden ${
+      className={`w-full h-full p-2 sm:p-3 flex flex-col justify-between relative transition-all overflow-hidden rounded-[15px] ${
         isDefault
           ? 'plush-cushion'
           : 'rain-glass-card glass-shine'
       }`}
     >
-      <div className="text-[10px] sm:text-[11px] font-black uppercase tracking-wider opacity-80 mb-1 flex items-center justify-between shrink-0">
-        <span className={isDefault ? 'embroidered-text' : ''}>
-          테이블 타일 조합 ({board.length}개)
-        </span>
-        {invalidSetCount > 0 && (
+      {invalidSetCount > 0 && (
+        <div className="text-[10px] sm:text-[11px] font-black uppercase tracking-wider opacity-80 mb-1 flex items-center justify-between shrink-0">
           <span className="text-red-600 font-black animate-pulse">
             무효 조합 {invalidSetCount}개
           </span>
-        )}
-        {selectedTile && (
-          <span className="text-[#D9A63B] font-black animate-pulse text-[9px] sm:text-xs">
-            선택한 타일을 터치하여 배치하세요!
-          </span>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Board Sets Grid */}
-      <div className="flex-1 min-h-0 flex flex-wrap content-start gap-1 sm:gap-2 overflow-y-auto pb-2">
+      <div
+        className="flex-1 min-h-0 flex flex-wrap content-start gap-1 sm:gap-2 overflow-y-auto pb-2 rounded-[15px]"
+        onClick={() => selectedTile && onCreateNewSetWithTile()}
+        onDragOver={(event) => event.preventDefault()}
+        onDrop={(event) => {
+          event.preventDefault();
+          const tileId = event.dataTransfer.getData('text/tile-id');
+          if (tileId) onDropTileToNewSet(tileId);
+        }}
+      >
         {board.length === 0 ? (
-          <div className="w-full my-auto text-center opacity-70 py-6">
-            <p className="text-xs sm:text-sm font-black">테이블에 배치된 타일 조합이 없습니다.</p>
-            <p className="text-[10px] sm:text-xs font-bold mt-0.5">
-              손에 있는 타일(3개 이상 올바른 조합 또는 30점 이상)을 등록해 보세요!
-            </p>
-          </div>
+          isMyTurn ? (
+            <div className="w-full h-full min-h-[180px] my-auto flex items-center justify-center border border-dashed border-[#2D323E]/40 rounded-[15px] text-center opacity-80 py-6">
+              <p className="text-xs sm:text-sm font-black text-[#2D323E]">여기에 타일 놓기</p>
+            </div>
+          ) : (
+            <div className="w-full my-auto text-center opacity-70 py-6">
+              <p className="text-xs sm:text-sm font-black">테이블에 배치된 타일 조합이 없습니다.</p>
+              <p className="text-[10px] sm:text-xs font-bold mt-0.5">
+                손에 있는 타일(3개 이상 올바른 조합 또는 30점 이상)을 등록해 보세요!
+              </p>
+            </div>
+          )
         ) : (
           board.map((set, setIndex) => {
             const valid = isValidSet(set);
@@ -69,7 +77,10 @@ export const BoardArea: React.FC<BoardAreaProps> = ({
             return (
               <div
                 key={`set-${setIndex}`}
-                onClick={() => selectedTile && onPlaceTileToSet(setIndex)}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  if (selectedTile) onPlaceTileToSet(setIndex);
+                }}
                 onDragOver={(event) => event.preventDefault()}
                 onDrop={(event) => {
                   event.preventDefault();
@@ -79,9 +90,9 @@ export const BoardArea: React.FC<BoardAreaProps> = ({
                 className={`p-0.5 sm:p-1 flex items-center gap-0.5 transition-all ${
                   valid
                     ? isDefault
-                      ? 'plush-tile !rounded-lg sm:!rounded-xl'
-                      : 'glass-capsule text-[#1E3A8A] !rounded-lg sm:!rounded-xl'
-                    : 'bg-red-100 border border-red-500 rounded-lg sm:rounded-xl text-red-700 animate-pulse'
+                      ? 'plush-tile !rounded-[5px]'
+                      : 'glass-capsule text-[#1E3A8A] !rounded-[5px]'
+                    : 'bg-red-100 border border-red-500 rounded-[5px] text-red-700 animate-pulse'
                 }`}
               >
                 {set.map((tile, tileIndex) => (
@@ -107,26 +118,6 @@ export const BoardArea: React.FC<BoardAreaProps> = ({
             );
           })
         )}
-
-        {/* Drop zone to create a brand new set */}
-        {
-          <button
-            onClick={selectedTile ? onCreateNewSetWithTile : undefined}
-            onDragOver={(event) => event.preventDefault()}
-            onDrop={(event) => {
-              event.preventDefault();
-              const tileId = event.dataTransfer.getData('text/tile-id');
-              if (tileId) onDropTileToNewSet(tileId);
-            }}
-            className={`p-1.5 sm:p-2 rounded-xl border border-dashed flex items-center justify-center gap-1 font-black text-[10px] sm:text-xs transition-all ${
-              isDefault
-                ? 'border-[#356C63] text-[#356C63] bg-[#F4F0E6] hover:bg-[#356C63] hover:text-white'
-                : 'border-white text-white glass-gel-btn'
-            }`}
-          >
-            <Plus className="w-3 h-3 sm:w-4 sm:h-4" /> {selectedTile ? '새 조합으로 등록' : '여기에 타일 놓기'}
-          </button>
-        }
       </div>
     </div>
   );
