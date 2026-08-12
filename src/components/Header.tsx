@@ -28,12 +28,12 @@ export const Header: React.FC<HeaderProps> = ({
   const { t } = useLanguage();
 
   return (
-    <header className="w-full px-4 py-4 sm:px-8 sticky top-0 z-40">
+    <header className="w-full px-3 py-3 sm:px-8 sticky top-0 z-40">
       <div
-        className={`max-w-7xl mx-auto flex items-center justify-between gap-2 p-3 px-5 transition-all`}
+        className={`max-w-7xl mx-auto flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between p-3 px-4 sm:px-5 transition-all`}
       >
         {/* Logo / Brand Title */}
-        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+        <div className="flex items-center gap-2 sm:gap-3 shrink-0 min-w-0">
           <div
             className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center font-bold text-lg shadow-sm shrink-0`}
           >
@@ -52,7 +52,7 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
 
         {/* User Controls & Navigation Actions */}
-        <div className="flex items-center gap-1.5 sm:gap-2.5">
+        <div className="flex items-center justify-end gap-1.5 sm:gap-2.5 flex-wrap sm:flex-nowrap">
           {/* Current Nickname */}
           <button
             onClick={onChangeNickname}

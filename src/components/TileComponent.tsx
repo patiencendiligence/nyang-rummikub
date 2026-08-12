@@ -41,10 +41,10 @@ export const TileComponent: React.FC<TileComponentProps> = ({
   };
 
   const sizeClasses = {
-    xs: 'w-4 h-6 text-[7px] rounded-sm',
-    sm: 'w-[20px] h-[30px] sm:w-[30px] sm:h-[44px] text-[8px] sm:text-[11px] rounded-sm sm:rounded-lg',
-    md: 'w-[24px] h-[36px] sm:w-[38px] sm:h-[54px] text-[9px] sm:text-sm rounded-md sm:rounded-xl',
-    lg: 'w-[30px] h-[44px] sm:w-[46px] sm:h-[64px] text-[11px] sm:text-base rounded-lg sm:rounded-xl',
+    xs: 'w-4 h-6 text-[7px] rounded-[5px]',
+    sm: 'w-[20px] h-[30px] sm:w-[30px] sm:h-[44px] text-[8px] sm:text-[11px] rounded-[5px]',
+    md: 'w-[24px] h-[36px] sm:w-[38px] sm:h-[54px] text-[9px] sm:text-sm rounded-[5px]',
+    lg: 'w-[30px] h-[44px] sm:w-[46px] sm:h-[64px] text-[11px] sm:text-base rounded-[5px]',
   };
 
   const sizeDimensions = sizeClasses[size];
