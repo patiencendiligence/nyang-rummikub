@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ThemeWrapper } from './components/ThemeWrapper';
 import { Header } from './components/Header';
 import { LobbyView } from './components/LobbyView';
@@ -14,6 +14,7 @@ import { LanguageProvider } from './constants/language';
 import { useGeoAccess } from './hooks/useGeoAccess';
 import { usePersistentPreferences } from './hooks/usePersistentPreferences';
 import { useRoomSession } from './hooks/useRoomSession';
+import { useInvitedRoomId } from './hooks/useInvitedRoomId';
 
 export default function App() {
   const { theme, language, nickname, toggleTheme, changeLanguage, saveNickname } = usePersistentPreferences();
@@ -36,6 +37,19 @@ export default function App() {
   const [showNicknameModal, setShowNicknameModal] = useState(false);
   const [showRules, setShowRules] = useState(false);
   const [showDashboard, setShowDashboard] = useState(false);
+
+  // 초대 링크(웹 ?room= 또는 앱인토스 intoss:// 딥링크)로 들어온 roomId를 읽어와
+  // 소켓이 연결되면 자동으로 해당 방에 입장시켜요.
+  const invitedRoomId = useInvitedRoomId();
+  const hasAutoJoinedRef = useRef(false);
+
+  useEffect(() => {
+    if (!invitedRoomId || hasAutoJoinedRef.current) return;
+    if (!socket || currentView !== 'lobby') return;
+
+    hasAutoJoinedRef.current = true;
+    joinRoom(invitedRoomId);
+  }, [invitedRoomId, socket, currentView, joinRoom]);
 
   if (isGeoBlocked) {
     return <GeoBlockedView language={language} />;
