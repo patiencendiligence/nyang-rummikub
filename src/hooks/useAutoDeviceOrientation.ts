@@ -35,17 +35,23 @@ export function useAutoDeviceOrientation() {
         );
         getOperationalEnvironment(); // 앱인토스 WebView가 아니면 여기서 throw됨
 
-        const mediaQuery = window.matchMedia('(orientation: landscape)');
-
         // 진입 시점의 기기 방향으로 즉시 동기화
-        syncOrientation(setDeviceOrientation, mediaQuery.matches);
+        const isLandscape = window.innerWidth > window.innerHeight;
+        syncOrientation(setDeviceOrientation, isLandscape);
 
-        const handleChange = (e: MediaQueryListEvent) => {
-          syncOrientation(setDeviceOrientation, e.matches);
+        // orientationchange 이벤트 (가장 안정적)
+        const handleOrientationChange = () => {
+          const isLandscapeNow = window.innerWidth > window.innerHeight;
+          syncOrientation(setDeviceOrientation, isLandscapeNow);
         };
 
-        mediaQuery.addEventListener('change', handleChange);
-        cleanupMediaQuery = () => mediaQuery.removeEventListener('change', handleChange);
+        window.addEventListener('orientationchange', handleOrientationChange);
+        window.addEventListener('resize', handleOrientationChange);
+        
+        cleanupMediaQuery = () => {
+          window.removeEventListener('orientationchange', handleOrientationChange);
+          window.removeEventListener('resize', handleOrientationChange);
+        };
       } catch {
         // 일반 브라우저(앱인토스 WebView 아님) - 아무 것도 하지 않아요.
         isTossApp = false;

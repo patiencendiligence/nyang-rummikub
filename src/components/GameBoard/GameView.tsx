@@ -412,7 +412,6 @@ export const GameView: React.FC<GameViewProps> = ({
             />
           </div>
 
-          
 
           {/* Bottom Player Rack Tray */}
           <div className="shrink-0">
