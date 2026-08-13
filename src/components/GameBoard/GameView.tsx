@@ -412,16 +412,7 @@ export const GameView: React.FC<GameViewProps> = ({
             />
           </div>
 
-          {/* Action Log / Status Banner */}
-          {isMyTurn && (
-            <div
-              className={`text-[10px] sm:text-[11px] font-black p-1 rounded-[15px] text-center truncate shrink-0 ${
-                isDefault ? 'plush-debossed text-[#2D323E]' : 'glass-capsule text-[#1E3A8A]'
-              }`}
-            >
-              {selectedTile ? '여기에 타일 놓기' : '여기에 타일 놓기'}
-            </div>
-          )}
+          
 
           {/* Bottom Player Rack Tray */}
           <div className="shrink-0">
