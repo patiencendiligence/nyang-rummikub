@@ -16,11 +16,11 @@ export const SeoIntro: React.FC<SeoIntroProps> = ({ theme }) => {
 
   const faqsKo = [
     {
-      q: '냥 루미큐브 온라인은 무료인가요?',
-      a: '네, 냥 루미큐브 온라인은 설치나 회원가입 없이 브라우저에서 바로 무료로 즐길 수 있는 온라인 루미큐브 게임입니다.',
+      q: '냥 루미큐브는 무료인가요?',
+      a: '네, 냥 루미큐브는 설치나 회원가입 없이 브라우저에서 바로 무료로 즐길 수 있는 온라인 루미큐브 게임입니다.',
     },
     {
-      q: '루미큐브는 몇 명이서 할 수 있나요?',
+      q: '냥 루미큐브는 몇 명이서 할 수 있나요?',
       a: '방을 만들어 2명에서 4명까지 실시간으로 함께 플레이할 수 있습니다.',
     },
     {
@@ -88,7 +88,7 @@ export const SeoIntro: React.FC<SeoIntroProps> = ({ theme }) => {
       <div className={`p-6 sm:p-8 transition-all ${cardClass}`}>
         <h2 className="text-lg sm:text-xl font-bold mb-2">무료 온라인 루미큐브, 설치 없이 바로 즐기기</h2>
         <p className="text-sm leading-relaxed opacity-90 mb-3">
-          냥 루미큐브 온라인은 회원가입이나 프로그램 설치 없이 브라우저에서 바로 즐기는 무료 루미큐브
+          냥 루미큐브는 회원가입이나 프로그램 설치 없이 브라우저에서 바로 즐기는 무료 루미큐브
           게임입니다. 방을 만들고 초대 코드를 친구에게 공유하면 2~4명이 실시간으로 함께 대결할 수
           있어요. PC와 모바일 모두에서 편하게 플레이할 수 있습니다.
         </p>
