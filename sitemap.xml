@@ -6,7 +6,7 @@
     <link rel="icon" href="/favicon.ico" sizes="any" />
     <link rel="apple-touch-icon" href="/icon192.webp" />
     <!-- Primary SEO -->
-    <title>냥 루미큐브 온라인 - 회원가입 없이 무료로 즐기는 루미큐브</title>
+    <title>냥 루미큐브 - 회원가입 없이 무료로 즐기는 루미큐브</title>
     <meta name="description" content="설치나 회원가입 없이 브라우저에서 바로 즐기는 무료 온라인 루미큐브. 방을 만들어 친구를 초대하거나 대기 중인 방에 입장해 실시간으로 대결하세요." />
     <meta name="keywords" content="루미큐브, 온라인 루미큐브, 루미큐브 무료, 루미큐브 게임, 루미큐브 온라인, 냥루미큐브, rummikub online" />
     <meta name="robots" content="index, follow" />
@@ -19,8 +19,8 @@
 
     <!-- Open Graph -->
     <meta property="og:type" content="website" />
-    <meta property="og:site_name" content="냥 루미큐브 온라인" />
-    <meta property="og:title" content="냥 루미큐브 온라인 - 회원가입 없이 무료로 즐기는 루미큐브" />
+    <meta property="og:site_name" content="냥 루미큐브" />
+    <meta property="og:title" content="냥 루미큐브 - 회원가입 없이 무료로 즐기는 루미큐브" />
     <meta property="og:description" content="설치나 회원가입 없이 브라우저에서 바로 즐기는 무료 온라인 루미큐브. 친구와 실시간으로 대결해보세요." />
     <meta property="og:url" content="https://nyang-rummikub.onrender.com/" />
     <meta property="og:image" content="https://nyang-rummikub.onrender.com/og-image.png" />
@@ -30,7 +30,7 @@
 
     <!-- Twitter -->
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="냥 루미큐브 온라인 - 무료 온라인 루미큐브" />
+    <meta name="twitter:title" content="냥 루미큐브 - 무료 온라인 루미큐브" />
     <meta name="twitter:description" content="설치나 회원가입 없이 브라우저에서 바로 즐기는 무료 온라인 루미큐브." />
     <meta name="twitter:image" content="https://nyang-rummikub.onrender.com/og-image.png" />
 
@@ -39,7 +39,7 @@
     {
       "@context": "https://schema.org",
       "@type": "WebApplication",
-      "name": "냥 루미큐브 온라인",
+      "name": "냥 루미큐브",
       "alternateName": "Nyang Rummikub Online",
       "description": "설치나 회원가입 없이 브라우저에서 바로 즐기는 무료 온라인 루미큐브. 친구와 실시간 멀티플레이어로 대결하세요.",
       "url": "https://nyang-rummikub.onrender.com/",
@@ -60,18 +60,18 @@
       "mainEntity": [
         {
           "@type": "Question",
-          "name": "냥 루미큐브 온라인은 무료인가요?",
+          "name": "냥 루미큐브는 무료인가요?",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "네, 냥 루미큐브 온라인은 설치나 회원가입 없이 브라우저에서 바로 무료로 즐길 수 있는 온라인 루미큐브 게임입니다."
+            "text": "네, 냥 루미큐브는 설치나 회원가입 없이 브라우저에서 바로 무료로 즐길 수 있는 온라인 루미큐브 게임입니다."
           }
         },
         {
           "@type": "Question",
-          "name": "루미큐브는 몇 명이서 할 수 있나요?",
+          "name": "냥 루미큐브는 몇 명이서 할 수 있나요?",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "냥 루미큐브 온라인은 방을 만들어 2명에서 4명까지 실시간으로 함께 플레이할 수 있습니다."
+            "text": "냥 루미큐브는 방을 만들어 2명에서 4명까지 실시간으로 함께 플레이할 수 있습니다."
           }
         },
         {
