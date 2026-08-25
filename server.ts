@@ -255,6 +255,38 @@ io.on('connection', (socket) => {
     startGameForRoom(room);
   });
 
+  socket.on('restart_game', (data: { roomId: string }) => {
+    const room = activeRooms[data.roomId];
+    if (!room) return;
+    if (room.hostId !== socket.id && !room.players.some((p) => p.id === socket.id && p.isHost)) return;
+
+    startGameForRoom(room);
+  });
+
+  socket.on('return_to_waiting_room', (data: { roomId: string }) => {
+    const room = activeRooms[data.roomId];
+    if (!room) return;
+    if (room.hostId !== socket.id && !room.players.some((p) => p.id === socket.id && p.isHost)) return;
+
+    clearRoomTimers(room.roomId);
+    room.status = 'waiting';
+    room.board = [];
+    room.boardInitialSnapshot = [];
+    room.playerHandsSnapshot = {};
+    room.tilePool = [];
+    room.winnerId = null;
+    room.currentTurnIndex = 0;
+    room.players.forEach((p) => {
+      p.hand = [];
+      p.hasMelded = false;
+      p.isTurn = false;
+    });
+    room.lastActionText = '대기실로 돌아왔습니다. 준비 후 게임을 시작하세요!';
+
+    io.to(room.roomId).emit('room_updated', room);
+    broadcastRoomsList();
+  });
+
   socket.on('play_with_bots', (data: { roomId: string }) => {
     const room = activeRooms[data.roomId];
     if (!room || room.hostId !== socket.id) return;
@@ -392,6 +424,18 @@ io.on('connection', (socket) => {
         winner,
         `타일 더미가 모두 소진되어 남은 타일 수가 가장 적은 ${winner.nickname} 님이 승리하였습니다!`
       );
+    }
+  });
+
+  socket.on('timeout_turn', (data: { roomId: string }) => {
+    const room = activeRooms[data.roomId];
+    if (!room || room.status !== 'playing') return;
+
+    // Verify turn elapsed
+    const elapsed = Date.now() - room.turnStartTime;
+    const limitMs = (room.settings.turnTimeLimit || 30) * 1000;
+    if (elapsed >= limitMs - 200) {
+      handleTurnTimeout(room);
     }
   });
 
@@ -603,6 +647,32 @@ function checkAndTriggerBotTurn(room: GameState) {
   }, delay);
 }
 
+function handleTurnTimeout(room: GameState, reason?: string) {
+  if (room.status !== 'playing') return;
+
+  const currentPlayer = room.players[room.currentTurnIndex];
+  if (!currentPlayer) return;
+
+  // Reset board & current player hand to snapshot if they made unsubmitted changes
+  room.board = JSON.parse(JSON.stringify(room.boardInitialSnapshot || []));
+  if (room.playerHandsSnapshot && room.playerHandsSnapshot[currentPlayer.id]) {
+    currentPlayer.hand = JSON.parse(JSON.stringify(room.playerHandsSnapshot[currentPlayer.id]));
+  }
+
+  if (room.tilePool.length > 0) {
+    const drawnTile = room.tilePool.pop()!;
+    currentPlayer.hand.push(drawnTile);
+    advanceTurn(room, reason || `${currentPlayer.nickname} 님이 시간 초과로 타일을 1개 가져왔습니다.`);
+  } else {
+    const winner = getLowestTileCountPlayer(room);
+    finishGame(
+      room,
+      winner,
+      `타일 더미가 모두 소진되어 남은 타일 수가 가장 적은 ${winner.nickname} 님이 승리하였습니다!`
+    );
+  }
+}
+
 function scheduleTurnTimeout(room: GameState) {
   if (turnTimeouts[room.roomId]) {
     clearTimeout(turnTimeouts[room.roomId]);
@@ -611,7 +681,7 @@ function scheduleTurnTimeout(room: GameState) {
 
   if (room.status !== 'playing') return;
 
-  const limitMs = (room.settings.turnTimeLimit || 30) * 1000 + 1000;
+  const limitMs = (room.settings.turnTimeLimit || 30) * 1000 + 300;
   const turnStartTime = room.turnStartTime;
 
   turnTimeouts[room.roomId] = setTimeout(() => {
@@ -619,27 +689,7 @@ function scheduleTurnTimeout(room: GameState) {
     if (!activeRoom || activeRoom.status !== 'playing') return;
     if (activeRoom.turnStartTime !== turnStartTime) return;
 
-    const currentPlayer = activeRoom.players[activeRoom.currentTurnIndex];
-    if (!currentPlayer) return;
-
-    // Reset board & current player hand to snapshot if they made unsubmitted changes
-    activeRoom.board = JSON.parse(JSON.stringify(activeRoom.boardInitialSnapshot));
-    if (activeRoom.playerHandsSnapshot[currentPlayer.id]) {
-      currentPlayer.hand = JSON.parse(JSON.stringify(activeRoom.playerHandsSnapshot[currentPlayer.id]));
-    }
-
-    if (activeRoom.tilePool.length > 0) {
-      const drawnTile = activeRoom.tilePool.pop()!;
-      currentPlayer.hand.push(drawnTile);
-      advanceTurn(activeRoom, `${currentPlayer.nickname} 님이 시간 초과로 타일을 1개 가져왔습니다.`);
-    } else {
-      const winner = getLowestTileCountPlayer(activeRoom);
-      finishGame(
-        activeRoom,
-        winner,
-        `타일 더미가 모두 소진되어 남은 타일 수가 가장 적은 ${winner.nickname} 님이 승리하였습니다!`
-      );
-    }
+    handleTurnTimeout(activeRoom);
   }, limitMs);
 }
 

@@ -62,20 +62,30 @@ export const GameView: React.FC<GameViewProps> = ({
       const remaining = Math.max(0, turnTimeLimit - elapsed);
       setTimeLeft(remaining);
 
-      if (remaining === 0 && isMyTurn && gameState.status === 'playing') {
-        if (autoDrawTriggeredRef.current !== gameState.turnStartTime) {
-          autoDrawTriggeredRef.current = gameState.turnStartTime;
-          if (socket) {
-            sounds.playDrawTile();
-            socket.emit('draw_tile', { roomId: gameState.roomId });
-            setSelectedTile(null);
+      if (remaining === 0 && gameState.status === 'playing') {
+        if (isMyTurn) {
+          if (autoDrawTriggeredRef.current !== gameState.turnStartTime) {
+            autoDrawTriggeredRef.current = gameState.turnStartTime;
+            if (socket) {
+              sounds.playDrawTile();
+              socket.emit('draw_tile', { roomId: gameState.roomId });
+              setSelectedTile(null);
+            }
+          }
+        } else {
+          // If turn exceeds limit by 1 second, ping server timeout_turn to advance turn smoothly
+          if (Date.now() - gameState.turnStartTime >= (turnTimeLimit + 1) * 1000) {
+            if (socket && autoDrawTriggeredRef.current !== gameState.turnStartTime) {
+              autoDrawTriggeredRef.current = gameState.turnStartTime;
+              socket.emit('timeout_turn', { roomId: gameState.roomId });
+            }
           }
         }
       }
     };
 
     updateTimer();
-    const interval = setInterval(updateTimer, 500);
+    const interval = setInterval(updateTimer, 300);
     return () => clearInterval(interval);
   }, [gameState.turnStartTime, turnTimeLimit, isMyTurn, gameState.status, gameState.roomId, socket]);
 
@@ -635,6 +645,16 @@ export const GameView: React.FC<GameViewProps> = ({
           finalScores={gameState.finalScores || {}}
           theme={theme}
           currentUserId={currentUserId}
+          isHost={
+            gameState.hostId === currentUserId ||
+            Boolean(gameState.players.find((p) => p.id === currentUserId)?.isHost)
+          }
+          onRestartGame={() => {
+            if (socket) socket.emit('restart_game', { roomId: gameState.roomId });
+          }}
+          onReturnToWaitingRoom={() => {
+            if (socket) socket.emit('return_to_waiting_room', { roomId: gameState.roomId });
+          }}
           onReturnToLobby={onReturnToLobby}
         />
       )}

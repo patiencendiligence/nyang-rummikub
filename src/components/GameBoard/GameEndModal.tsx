@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import confetti from 'canvas-confetti';
-import { Trophy, Home, X } from 'lucide-react';
+import { Trophy, Home, X, RotateCcw, Users, LogOut, Loader2 } from 'lucide-react';
 import { GameState, Player, ThemeMode } from '../../types/game';
 import { sounds } from '../../utils/sound';
 import { useLanguage } from '../../constants/language';
@@ -11,6 +11,9 @@ interface GameEndModalProps {
   finalScores: Record<string, number>;
   theme: ThemeMode;
   currentUserId?: string;
+  isHost: boolean;
+  onRestartGame: () => void;
+  onReturnToWaitingRoom: () => void;
   onReturnToLobby: () => void;
 }
 
@@ -20,10 +23,13 @@ export const GameEndModal: React.FC<GameEndModalProps> = ({
   finalScores,
   theme,
   currentUserId,
+  isHost,
+  onRestartGame,
+  onReturnToWaitingRoom,
   onReturnToLobby,
 }) => {
   const isDefault = theme === 'default';
-  const { language } = useLanguage();
+  const { t, language } = useLanguage();
   const [showResultPopup, setShowResultPopup] = useState(true);
 
   const isIWin = Boolean(
@@ -204,7 +210,7 @@ export const GameEndModal: React.FC<GameEndModalProps> = ({
                   <span className="flex items-center gap-1.5">
                     <span className="text-base">{isWinner ? '👑' : '🐾'}</span>
                     <span className={isWinner ? 'text-amber-700 font-extrabold' : ''}>
-                      {p.nickname} {p.id === currentUserId && `(${language === 'ko' ? '나' : 'you'})`}
+                      {p.isBot ? `🤖 ${p.nickname}` : `${p.nickname} ${p.id === currentUserId ? `(${language === 'ko' ? '나' : 'you'})` : ''}`}
                     </span>
                   </span>
                   <span className={`px-2.5 py-0.5 rounded-full text-xs font-black ${
@@ -221,14 +227,53 @@ export const GameEndModal: React.FC<GameEndModalProps> = ({
             })}
           </div>
 
-          <button
-            onClick={onReturnToLobby}
-            className={`w-full py-3.5 rounded-2xl font-black text-sm flex items-center justify-center gap-2 text-white shadow-md transition-all active:scale-95 ${
-              isDefault ? 'plush-rose-btn' : 'glass-gel-btn'
-            }`}
-          >
-            <Home className="w-4 h-4 stroke-[2.5]" /> {language === 'ko' ? '대기실로 돌아가기' : 'Return to lobby'}
-          </button>
+          {/* Action Buttons */}
+          <div className="flex flex-col gap-2.5 mt-1">
+            {/* Rematch Button */}
+            {isHost ? (
+              <button
+                onClick={onRestartGame}
+                className={`w-full py-3.5 rounded-2xl font-black text-sm flex items-center justify-center gap-2 text-white shadow-lg transition-all active:scale-95 ${
+                  isDefault ? 'plush-purple-btn' : 'glass-gel-btn'
+                }`}
+              >
+                <RotateCcw className="w-4 h-4 stroke-[2.5]" /> {t('playAgain')}
+              </button>
+            ) : (
+              <div className="flex items-center justify-center gap-2 py-2 px-3 rounded-xl bg-amber-500/10 text-amber-800 text-xs font-bold">
+                <Loader2 className="w-4 h-4 animate-spin text-amber-600 shrink-0" />
+                <span>{t('waitingForHostRestart')}</span>
+              </div>
+            )}
+
+            <div className="flex items-center gap-2">
+              {/* Return to Waiting Room */}
+              {isHost && (
+                <button
+                  onClick={onReturnToWaitingRoom}
+                  className={`flex-1 py-2.5 rounded-2xl font-black text-xs flex items-center justify-center gap-1.5 transition-all active:scale-95 ${
+                    isDefault
+                      ? 'plush-debossed hover:opacity-90 text-[#2D323E]'
+                      : 'glass-capsule hover:bg-white/40 text-[#1E3A8A]'
+                  }`}
+                >
+                  <Users className="w-3.5 h-3.5 stroke-[2.2]" /> {t('backToWaitingRoom')}
+                </button>
+              )}
+
+              {/* Leave Room to Main Lobby */}
+              <button
+                onClick={onReturnToLobby}
+                className={`flex-1 py-2.5 rounded-2xl font-black text-xs flex items-center justify-center gap-1.5 transition-all active:scale-95 ${
+                  isDefault
+                    ? 'plush-rose-btn'
+                    : 'glass-capsule text-[#222222]'
+                }`}
+              >
+                <LogOut className="w-3.5 h-3.5 stroke-[2.2]" /> {t('leaveToLobby')}
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </>
