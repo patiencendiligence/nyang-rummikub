@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Socket } from 'socket.io-client';
-import { Crown, Share2, UserX, Settings, Play, LogOut, CheckCircle2 } from 'lucide-react';
+import { Crown, Share2, UserX, Settings, Play, LogOut, CheckCircle2, Bot } from 'lucide-react';
 import { GameState, ThemeMode } from '../types/game';
 import { useLanguage } from '../constants/language';
 
@@ -96,6 +96,11 @@ export const WaitingRoomView: React.FC<WaitingRoomViewProps> = ({
     socket.emit('start_game', { roomId: gameState.roomId });
   };
 
+  const handlePlayWithBot = () => {
+    if (!socket || !isHost) return;
+    socket.emit('play_with_bots', { roomId: gameState.roomId });
+  };
+
   return (
     <div className="max-w-4xl mx-auto px-4 py-6 flex flex-col gap-6">
       {/* Header Banner */}
@@ -124,27 +129,44 @@ export const WaitingRoomView: React.FC<WaitingRoomViewProps> = ({
           </h2>
         </div>
 
-        {/* Share Button */}
-        <button
-          onClick={handleCopyLink}
-          className={`flex items-center justify-center gap-2 px-5 py-2.5 font-black text-xs transition-all ${
-            copied
-              ? 'bg-emerald-600 text-white rounded-2xl shadow-md'
-              : isDefault
-              ? 'plush-rose-btn'
-              : 'glass-capsule text-[#222222]'
-          }`}
-        >
-          {copied ? (
-            <>
-              <CheckCircle2 className="w-4 h-4" /> {t('copied')}
-            </>
-          ) : (
-            <>
-              <Share2 className="w-4 h-4" /> {t('copyInvite')}
-            </>
+        {/* Buttons: Copy Invite & Play with Bot */}
+        <div className="flex flex-col gap-2 shrink-0">
+          {/* Share Button */}
+          <button
+            onClick={handleCopyLink}
+            className={`flex items-center justify-center gap-2 px-5 py-2.5 font-black text-xs transition-all ${
+              copied
+                ? 'bg-emerald-600 text-white rounded-2xl shadow-md'
+                : isDefault
+                ? 'plush-rose-btn'
+                : 'glass-capsule text-[#222222]'
+            }`}
+          >
+            {copied ? (
+              <>
+                <CheckCircle2 className="w-4 h-4" /> {t('copied')}
+              </>
+            ) : (
+              <>
+                <Share2 className="w-4 h-4" /> {t('copyInvite')}
+              </>
+            )}
+          </button>
+
+          {/* Play with Computer Button (Below Copy Invite Button) */}
+          {isHost && (
+            <button
+              onClick={handlePlayWithBot}
+              className={`flex items-center justify-center gap-2 px-5 py-2.5 font-black text-xs rounded-2xl shadow-md transition-all active:scale-95 ${
+                isDefault
+                  ? 'bg-[#356C63] text-white hover:bg-[#28534C]'
+                  : 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:opacity-90'
+              }`}
+            >
+              <Bot className="w-4 h-4" /> {t('playWithBot')}
+            </button>
           )}
-        </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -198,7 +220,7 @@ export const WaitingRoomView: React.FC<WaitingRoomViewProps> = ({
                         {p.nickname} {isSelf && `(${t('you')})`}
                       </span>
                       <span className="text-[10px] font-bold opacity-75">
-                        {p.isHost ? t('host') : t('participant')}
+                        {p.isHost ? t('host') : p.isBot ? `🤖 ${t('bot')}` : t('participant')}
                       </span>
                     </div>
                   </div>

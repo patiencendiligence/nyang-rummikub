@@ -358,8 +358,16 @@ export const GameView: React.FC<GameViewProps> = ({
 
         {/* Center: Timer & Turn Banner */}
         <div className="flex items-center gap-2 flex-1 max-w-xs sm:max-w-sm justify-center">
-          {isMyTurn && (
+          {isMyTurn ? (
             <span className="text-[10px] sm:text-xs font-black text-[#2D323E] truncate">내 차례입니다.</span>
+          ) : gameState.players[gameState.currentTurnIndex]?.isBot ? (
+            <span className="text-[10px] sm:text-xs font-black text-amber-700 animate-pulse truncate">
+              🤖 {gameState.players[gameState.currentTurnIndex]?.nickname} 생각 중...
+            </span>
+          ) : (
+            <span className="text-[10px] sm:text-xs font-bold text-gray-500 truncate">
+              {gameState.players[gameState.currentTurnIndex]?.nickname} 님의 차례
+            </span>
           )}
           <Clock
             className={`w-4 h-4 shrink-0 ${
@@ -494,7 +502,7 @@ export const GameView: React.FC<GameViewProps> = ({
                           : 'text-[#1E3A8A]'
                       }`}
                     >
-                      {p.nickname} {isSelf && '(나)'}
+                      {p.isBot ? `🤖 ${p.nickname}` : `${p.nickname} ${isSelf ? '(나)' : ''}`}
                     </span>
                     <span className="text-[6px] sm:text-[7px] font-bold opacity-70 block">
                       {p.hasMelded ? '30+' : '미등록'}

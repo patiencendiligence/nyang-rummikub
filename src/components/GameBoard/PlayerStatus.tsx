@@ -118,8 +118,9 @@ export const PlayerStatus: React.FC<PlayerStatusProps> = ({
                   />
                 </div>
                 <div className="truncate">
-                  <span className="font-black text-xs block truncate leading-tight">
-                    {p.nickname} {isSelf && '(나)'}
+                  <span className="font-black text-xs block truncate leading-tight flex items-center gap-1">
+                    {p.isBot && <span className="text-[10px] bg-amber-200 text-amber-900 px-1 rounded-sm font-extrabold shrink-0">AI</span>}
+                    <span className="truncate">{p.nickname} {isSelf && '(나)'}</span>
                   </span>
                   <span className="text-[10px] font-bold opacity-80 block">
                     {p.hasMelded ? '등록완료 (30+)' : '미등록'}

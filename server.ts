@@ -5,6 +5,7 @@ import { Server as SocketIOServer } from 'socket.io';
 import { createServer as createViteServer } from 'vite';
 import { Tile, GameState, RoomSettings, ChatMessage, Player, TileSet, GameRecord } from './src/types/game';
 import { generateTileDeck, isValidSet, getSetPoints } from './src/utils/rummikubEngine';
+import { executeBotTurn } from './src/utils/botAi';
 
 const app = express();
 const server = http.createServer(app);
@@ -23,8 +24,22 @@ app.use(express.json());
 // In-memory data stores
 const activeRooms: Record<string, GameState> = {};
 const turnTimeouts: Record<string, NodeJS.Timeout> = {};
+const botTurnTimeouts: Record<string, NodeJS.Timeout> = {};
 const lobbyMessages: ChatMessage[] = [];
 const gameRecordsStore: GameRecord[] = [];
+
+const BOT_NAMES = ['냥봇 루미', '냥봇 코코', '냥봇 미유', '냥봇 보리', '냥봇 나비', '냥봇 모찌', '냥봇 까미'];
+
+function clearRoomTimers(roomId: string) {
+  if (turnTimeouts[roomId]) {
+    clearTimeout(turnTimeouts[roomId]);
+    delete turnTimeouts[roomId];
+  }
+  if (botTurnTimeouts[roomId]) {
+    clearTimeout(botTurnTimeouts[roomId]);
+    delete botTurnTimeouts[roomId];
+  }
+}
 
 // Helper: Check if IP is in China (CN)
 function isChinaIP(ipString: string): boolean {
@@ -237,30 +252,38 @@ io.on('connection', (socket) => {
       return;
     }
 
-    const deck = generateTileDeck(); // 106 tiles
-    room.status = 'playing';
-    room.board = [];
-    room.winnerId = null;
+    startGameForRoom(room);
+  });
 
-    // Deal 14 tiles to each player
-    const handsSnapshot: Record<string, Tile[]> = {};
-    room.players.forEach((player, idx) => {
-      player.hand = deck.splice(0, 14);
-      player.hasMelded = false;
-      player.isTurn = idx === 0;
-      handsSnapshot[player.id] = [...player.hand];
-    });
+  socket.on('play_with_bots', (data: { roomId: string }) => {
+    const room = activeRooms[data.roomId];
+    if (!room || room.hostId !== socket.id) return;
+    if (room.status !== 'waiting') return;
 
-    room.tilePool = deck;
-    room.currentTurnIndex = 0;
-    room.turnStartTime = Date.now();
-    room.boardInitialSnapshot = [];
-    room.playerHandsSnapshot = handsSnapshot;
-    room.lastActionText = `${room.players[0].nickname} 님의 차례입니다.`;
+    const neededBots = Math.max(0, room.settings.maxPlayers - room.players.length);
+    const botsToAdd = room.players.length === 1 && neededBots === 0 ? 1 : neededBots;
 
-    io.to(data.roomId).emit('game_started', room);
-    scheduleTurnTimeout(room);
-    broadcastRoomsList();
+    const existingNames = new Set(room.players.map((p) => p.nickname));
+    const availableBotNames = BOT_NAMES.filter((name) => !existingNames.has(name));
+
+    for (let i = 0; i < botsToAdd; i++) {
+      const botName = availableBotNames[i % availableBotNames.length] || `냥봇 ${i + 1}`;
+      const botPlayer: Player = {
+        id: `bot-${Date.now()}-${i}-${Math.random().toString(36).substr(2, 4)}`,
+        nickname: botName,
+        isHost: false,
+        isReady: true,
+        hand: [],
+        hasMelded: false,
+        score: 0,
+        isTurn: false,
+        connected: true,
+        isBot: true,
+      };
+      room.players.push(botPlayer);
+    }
+
+    startGameForRoom(room);
   });
 
   socket.on('update_board', (data: { roomId: string; newBoard: TileSet[]; myHand: Tile[] }) => {
@@ -471,6 +494,34 @@ function handlePlayerLeave(socketId: string) {
   });
 }
 
+function startGameForRoom(room: GameState) {
+  const deck = generateTileDeck(); // 106 tiles
+  room.status = 'playing';
+  room.board = [];
+  room.winnerId = null;
+
+  // Deal 14 tiles to each player
+  const handsSnapshot: Record<string, Tile[]> = {};
+  room.players.forEach((player, idx) => {
+    player.hand = deck.splice(0, 14);
+    player.hasMelded = false;
+    player.isTurn = idx === 0;
+    handsSnapshot[player.id] = [...player.hand];
+  });
+
+  room.tilePool = deck;
+  room.currentTurnIndex = 0;
+  room.turnStartTime = Date.now();
+  room.boardInitialSnapshot = [];
+  room.playerHandsSnapshot = handsSnapshot;
+  room.lastActionText = `${room.players[0].nickname} 님의 차례입니다.`;
+
+  io.to(room.roomId).emit('game_started', room);
+  scheduleTurnTimeout(room);
+  checkAndTriggerBotTurn(room);
+  broadcastRoomsList();
+}
+
 function advanceTurn(room: GameState, actionText: string) {
   let nextIndex = (room.currentTurnIndex + 1) % room.players.length;
 
@@ -492,6 +543,64 @@ function advanceTurn(room: GameState, actionText: string) {
 
   io.to(room.roomId).emit('room_updated', room);
   scheduleTurnTimeout(room);
+  checkAndTriggerBotTurn(room);
+}
+
+function checkAndTriggerBotTurn(room: GameState) {
+  if (botTurnTimeouts[room.roomId]) {
+    clearTimeout(botTurnTimeouts[room.roomId]);
+    delete botTurnTimeouts[room.roomId];
+  }
+
+  if (room.status !== 'playing') return;
+
+  const currentPlayer = room.players[room.currentTurnIndex];
+  if (!currentPlayer || !currentPlayer.isBot) return;
+
+  // Bot makes move after a realistic human-like delay (1200ms - 2000ms)
+  const delay = 1200 + Math.floor(Math.random() * 800);
+  const turnStartTime = room.turnStartTime;
+
+  botTurnTimeouts[room.roomId] = setTimeout(() => {
+    const activeRoom = activeRooms[room.roomId];
+    if (!activeRoom || activeRoom.status !== 'playing') return;
+    if (activeRoom.turnStartTime !== turnStartTime) return;
+
+    const activeBot = activeRoom.players[activeRoom.currentTurnIndex];
+    if (!activeBot || activeBot.id !== currentPlayer.id) return;
+
+    const botResult = executeBotTurn(activeBot, activeRoom);
+
+    if (botResult.action === 'play') {
+      if (!activeBot.hasMelded) {
+        activeBot.hasMelded = true;
+      }
+      activeBot.hand = botResult.newHand;
+      activeRoom.board = botResult.newBoard;
+
+      // Check win
+      if (activeBot.hand.length === 0) {
+        finishGame(activeRoom, activeBot);
+        return;
+      }
+
+      advanceTurn(activeRoom, botResult.actionText);
+    } else {
+      // Draw tile
+      if (activeRoom.tilePool.length > 0) {
+        const drawnTile = activeRoom.tilePool.pop()!;
+        activeBot.hand.push(drawnTile);
+        advanceTurn(activeRoom, `${activeBot.nickname} 님이 타일을 1개 가져왔습니다.`);
+      } else {
+        const winner = getLowestTileCountPlayer(activeRoom);
+        finishGame(
+          activeRoom,
+          winner,
+          `타일 더미가 모두 소진되어 남은 타일 수가 가장 적은 ${winner.nickname} 님이 승리하였습니다!`
+        );
+      }
+    }
+  }, delay);
 }
 
 function scheduleTurnTimeout(room: GameState) {
@@ -553,10 +662,7 @@ function getLowestTileCountPlayer(room: GameState): Player {
 }
 
 function finishGame(room: GameState, winner: Player, customReason?: string, leftPlayer?: Player) {
-  if (turnTimeouts[room.roomId]) {
-    clearTimeout(turnTimeouts[room.roomId]);
-    delete turnTimeouts[room.roomId];
-  }
+  clearRoomTimers(room.roomId);
   room.status = 'ended';
   room.winnerId = winner.id;
 

@@ -19,6 +19,7 @@ export interface Player {
   score: number;
   isTurn: boolean;
   connected: boolean;
+  isBot?: boolean;
   ip?: string;
   country?: string;
 }
