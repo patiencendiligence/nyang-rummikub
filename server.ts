@@ -331,6 +331,24 @@ io.on('connection', (socket) => {
     io.to(data.roomId).emit('room_updated', room);
   });
 
+  socket.on('update_hand_order', (data: { roomId: string; myHand: Tile[] }) => {
+    const room = activeRooms[data.roomId];
+    if (!room || room.status !== 'playing') return;
+
+    const player = room.players.find((p) => p.id === socket.id);
+    if (!player || !Array.isArray(data.myHand)) return;
+
+    // Check validity of hand tiles
+    const currentHandIds = new Set(player.hand.map((t) => t.id));
+    if (data.myHand.length === player.hand.length && data.myHand.every((t) => currentHandIds.has(t.id))) {
+      player.hand = data.myHand;
+      // If player hasn't modified board during their turn yet, update snapshot as well
+      if (room.players[room.currentTurnIndex]?.id === socket.id && room.playerHandsSnapshot[player.id]?.length === player.hand.length) {
+        room.playerHandsSnapshot[player.id] = JSON.parse(JSON.stringify(player.hand));
+      }
+    }
+  });
+
   socket.on('reset_turn_board', (data: { roomId: string }) => {
     const room = activeRooms[data.roomId];
     if (!room || room.status !== 'playing') return;
@@ -431,10 +449,10 @@ io.on('connection', (socket) => {
     const room = activeRooms[data.roomId];
     if (!room || room.status !== 'playing') return;
 
-    // Verify turn elapsed
+    // Verify turn elapsed with tolerance for client-server clock drift
     const elapsed = Date.now() - room.turnStartTime;
     const limitMs = (room.settings.turnTimeLimit || 30) * 1000;
-    if (elapsed >= limitMs - 200) {
+    if (elapsed >= limitMs - 1000) {
       handleTurnTimeout(room);
     }
   });
@@ -532,6 +550,8 @@ function handlePlayerLeave(socketId: string) {
         } 님의 차례입니다.`;
 
         io.to(room.roomId).emit('room_updated', room);
+        scheduleTurnTimeout(room);
+        checkAndTriggerBotTurn(room);
       }
     }
     broadcastRoomsList();
@@ -567,27 +587,38 @@ function startGameForRoom(room: GameState) {
 }
 
 function advanceTurn(room: GameState, actionText: string) {
-  let nextIndex = (room.currentTurnIndex + 1) % room.players.length;
+  try {
+    if (!room.players || room.players.length === 0) return;
 
-  room.players.forEach((p, idx) => {
-    p.isTurn = idx === nextIndex;
-  });
+    let nextIndex = (room.currentTurnIndex + 1) % room.players.length;
+    if (isNaN(nextIndex) || nextIndex < 0 || nextIndex >= room.players.length) {
+      nextIndex = 0;
+    }
 
-  room.currentTurnIndex = nextIndex;
-  room.turnStartTime = Date.now();
-  room.boardInitialSnapshot = JSON.parse(JSON.stringify(room.board));
+    room.players.forEach((p, idx) => {
+      p.isTurn = idx === nextIndex;
+    });
 
-  // Save hand snapshot for everyone
-  const handsSnapshot: Record<string, Tile[]> = {};
-  room.players.forEach((p) => {
-    handsSnapshot[p.id] = JSON.parse(JSON.stringify(p.hand));
-  });
-  room.playerHandsSnapshot = handsSnapshot;
-  room.lastActionText = `${actionText} ${room.players[nextIndex].nickname} 님의 차례입니다.`;
+    room.currentTurnIndex = nextIndex;
+    room.turnStartTime = Date.now();
+    room.boardInitialSnapshot = JSON.parse(JSON.stringify(room.board || []));
 
-  io.to(room.roomId).emit('room_updated', room);
-  scheduleTurnTimeout(room);
-  checkAndTriggerBotTurn(room);
+    // Save hand snapshot for everyone
+    const handsSnapshot: Record<string, Tile[]> = {};
+    room.players.forEach((p) => {
+      handsSnapshot[p.id] = JSON.parse(JSON.stringify(p.hand || []));
+    });
+    room.playerHandsSnapshot = handsSnapshot;
+
+    const nextPlayerName = room.players[nextIndex]?.nickname || '다음 플레이어';
+    room.lastActionText = `${actionText} ${nextPlayerName} 님의 차례입니다.`;
+
+    io.to(room.roomId).emit('room_updated', room);
+    scheduleTurnTimeout(room);
+    checkAndTriggerBotTurn(room);
+  } catch (err) {
+    console.error('Error in advanceTurn:', err);
+  }
 }
 
 function checkAndTriggerBotTurn(room: GameState) {
@@ -596,80 +627,100 @@ function checkAndTriggerBotTurn(room: GameState) {
     delete botTurnTimeouts[room.roomId];
   }
 
-  if (room.status !== 'playing') return;
+  if (room.status !== 'playing' || !room.players || room.players.length === 0) return;
+
+  if (room.currentTurnIndex < 0 || room.currentTurnIndex >= room.players.length) {
+    room.currentTurnIndex = 0;
+  }
 
   const currentPlayer = room.players[room.currentTurnIndex];
   if (!currentPlayer || !currentPlayer.isBot) return;
 
-  // Bot makes move after a realistic human-like delay (1200ms - 2000ms)
-  const delay = 1200 + Math.floor(Math.random() * 800);
+  // Bot makes move after a realistic human-like delay (1000ms - 1800ms)
+  const delay = 1000 + Math.floor(Math.random() * 800);
   const turnStartTime = room.turnStartTime;
 
   botTurnTimeouts[room.roomId] = setTimeout(() => {
-    const activeRoom = activeRooms[room.roomId];
-    if (!activeRoom || activeRoom.status !== 'playing') return;
-    if (activeRoom.turnStartTime !== turnStartTime) return;
+    try {
+      const activeRoom = activeRooms[room.roomId];
+      if (!activeRoom || activeRoom.status !== 'playing') return;
+      if (activeRoom.turnStartTime !== turnStartTime) return;
 
-    const activeBot = activeRoom.players[activeRoom.currentTurnIndex];
-    if (!activeBot || activeBot.id !== currentPlayer.id) return;
+      const activeBot = activeRoom.players[activeRoom.currentTurnIndex];
+      if (!activeBot || activeBot.id !== currentPlayer.id) return;
 
-    const botResult = executeBotTurn(activeBot, activeRoom);
+      const botResult = executeBotTurn(activeBot, activeRoom);
 
-    if (botResult.action === 'play') {
-      if (!activeBot.hasMelded) {
-        activeBot.hasMelded = true;
-      }
-      activeBot.hand = botResult.newHand;
-      activeRoom.board = botResult.newBoard;
+      if (botResult.action === 'play') {
+        if (!activeBot.hasMelded) {
+          activeBot.hasMelded = true;
+        }
+        activeBot.hand = botResult.newHand;
+        activeRoom.board = botResult.newBoard;
 
-      // Check win
-      if (activeBot.hand.length === 0) {
-        finishGame(activeRoom, activeBot);
-        return;
-      }
+        // Check win
+        if (activeBot.hand.length === 0) {
+          finishGame(activeRoom, activeBot);
+          return;
+        }
 
-      advanceTurn(activeRoom, botResult.actionText);
-    } else {
-      // Draw tile
-      if (activeRoom.tilePool.length > 0) {
-        const drawnTile = activeRoom.tilePool.pop()!;
-        activeBot.hand.push(drawnTile);
-        advanceTurn(activeRoom, `${activeBot.nickname} 님이 타일을 1개 가져왔습니다.`);
+        advanceTurn(activeRoom, botResult.actionText);
       } else {
-        const winner = getLowestTileCountPlayer(activeRoom);
-        finishGame(
-          activeRoom,
-          winner,
-          `타일 더미가 모두 소진되어 남은 타일 수가 가장 적은 ${winner.nickname} 님이 승리하였습니다!`
-        );
+        // Draw tile
+        if (activeRoom.tilePool.length > 0) {
+          const drawnTile = activeRoom.tilePool.pop()!;
+          activeBot.hand.push(drawnTile);
+          advanceTurn(activeRoom, `${activeBot.nickname} 님이 타일을 1개 가져왔습니다.`);
+        } else {
+          const winner = getLowestTileCountPlayer(activeRoom);
+          finishGame(
+            activeRoom,
+            winner,
+            `타일 더미가 모두 소진되어 남은 타일 수가 가장 적은 ${winner.nickname} 님이 승리하였습니다!`
+          );
+        }
+      }
+    } catch (botErr) {
+      console.error('Error in bot turn execution:', botErr);
+      const activeRoom = activeRooms[room.roomId];
+      if (activeRoom && activeRoom.status === 'playing') {
+        handleTurnTimeout(activeRoom, `${currentPlayer.nickname} 님이 타일을 1개 가져왔습니다.`);
       }
     }
   }, delay);
 }
 
 function handleTurnTimeout(room: GameState, reason?: string) {
-  if (room.status !== 'playing') return;
+  try {
+    if (room.status !== 'playing' || !room.players || room.players.length === 0) return;
 
-  const currentPlayer = room.players[room.currentTurnIndex];
-  if (!currentPlayer) return;
+    if (room.currentTurnIndex < 0 || room.currentTurnIndex >= room.players.length) {
+      room.currentTurnIndex = 0;
+    }
 
-  // Reset board & current player hand to snapshot if they made unsubmitted changes
-  room.board = JSON.parse(JSON.stringify(room.boardInitialSnapshot || []));
-  if (room.playerHandsSnapshot && room.playerHandsSnapshot[currentPlayer.id]) {
-    currentPlayer.hand = JSON.parse(JSON.stringify(room.playerHandsSnapshot[currentPlayer.id]));
-  }
+    const currentPlayer = room.players[room.currentTurnIndex];
+    if (!currentPlayer) return;
 
-  if (room.tilePool.length > 0) {
-    const drawnTile = room.tilePool.pop()!;
-    currentPlayer.hand.push(drawnTile);
-    advanceTurn(room, reason || `${currentPlayer.nickname} 님이 시간 초과로 타일을 1개 가져왔습니다.`);
-  } else {
-    const winner = getLowestTileCountPlayer(room);
-    finishGame(
-      room,
-      winner,
-      `타일 더미가 모두 소진되어 남은 타일 수가 가장 적은 ${winner.nickname} 님이 승리하였습니다!`
-    );
+    // Reset board & current player hand to snapshot if they made unsubmitted changes
+    room.board = JSON.parse(JSON.stringify(room.boardInitialSnapshot || []));
+    if (room.playerHandsSnapshot && room.playerHandsSnapshot[currentPlayer.id]) {
+      currentPlayer.hand = JSON.parse(JSON.stringify(room.playerHandsSnapshot[currentPlayer.id]));
+    }
+
+    if (room.tilePool.length > 0) {
+      const drawnTile = room.tilePool.pop()!;
+      currentPlayer.hand.push(drawnTile);
+      advanceTurn(room, reason || `${currentPlayer.nickname} 님이 시간 초과로 타일을 1개 가져왔습니다.`);
+    } else {
+      const winner = getLowestTileCountPlayer(room);
+      finishGame(
+        room,
+        winner,
+        `타일 더미가 모두 소진되어 남은 타일 수가 가장 적은 ${winner.nickname} 님이 승리하였습니다!`
+      );
+    }
+  } catch (err) {
+    console.error('Error in handleTurnTimeout:', err);
   }
 }
 
@@ -692,6 +743,19 @@ function scheduleTurnTimeout(room: GameState) {
     handleTurnTimeout(activeRoom);
   }, limitMs);
 }
+
+// Watchdog interval: Check active rooms every 1 second to ensure no turn gets stuck past time limit
+setInterval(() => {
+  const now = Date.now();
+  Object.values(activeRooms).forEach((room) => {
+    if (room.status === 'playing') {
+      const limitMs = (room.settings.turnTimeLimit || 30) * 1000;
+      if (now - room.turnStartTime >= limitMs + 1000) {
+        handleTurnTimeout(room);
+      }
+    }
+  });
+}, 1000);
 
 function getLowestTileCountPlayer(room: GameState): Player {
   if (room.players.length === 0) return room.players[0];

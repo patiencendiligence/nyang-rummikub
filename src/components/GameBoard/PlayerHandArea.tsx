@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Tile, ThemeMode } from '../../types/game';
 import { TileComponent } from '../TileComponent';
 import { sortHand } from '../../utils/rummikubEngine';
@@ -11,7 +11,7 @@ interface PlayerHandAreaProps {
   onSetHand: (sortedHand: Tile[]) => void;
   onLongPressTile: (tile: Tile) => void;
   onDragStartTile: (tile: Tile, e: React.DragEvent) => void;
-  onDropTile: (tileId: string) => void;
+  onDropTile: (tileId: string, targetTileId?: string) => void;
   isMyTurn: boolean;
   compact?: boolean;
 }
@@ -29,6 +29,7 @@ export const PlayerHandArea: React.FC<PlayerHandAreaProps> = ({
   compact = false,
 }) => {
   const isDefault = theme === 'default';
+  const [dragOverTileId, setDragOverTileId] = useState<string | null>(null);
 
   const handleSortByNumber = () => {
     onSetHand(sortHand(hand, 'number'));
@@ -39,82 +40,88 @@ export const PlayerHandArea: React.FC<PlayerHandAreaProps> = ({
   };
 
   return (
-    <div className="w-full flex flex-col gap-1.5 transition-all">
-      {/* Header bar (only if not compact) */}
-      {!compact && (
-        <div className="flex items-center justify-between gap-2 px-1">
-          <div className="flex items-center gap-2">
-            <span className={`font-black text-xs ${isDefault ? 'text-white' : 'text-[#1E3A8A]'}`}>
-              내 타일 받침대
-            </span>
-            <span className="text-[11px] px-2 py-0.5 font-black rounded-full bg-amber-500 text-white shadow-sm">
-              {hand.length}개
-            </span>
-            {isMyTurn && (
-              <span className="text-[11px] font-black text-amber-300 animate-pulse">
-                ★ 내 차례입니다!
-              </span>
-            )}
-          </div>
-
-          <div className="flex items-center gap-1.5">
-            <button
-              onClick={handleSortByNumber}
-              className="px-2.5 py-1 rounded-xl text-xs font-black bg-blue-600 hover:bg-blue-700 text-white shadow transition-all active:scale-95"
-            >
-              789 (연속)
-            </button>
-            <button
-              onClick={handleSortByColor}
-              className="px-2.5 py-1 rounded-xl text-xs font-black bg-indigo-600 hover:bg-indigo-700 text-white shadow transition-all active:scale-95"
-            >
-              777 (그룹)
-            </button>
-          </div>
-        </div>
-      )}
-
+    <div className="w-full flex flex-col transition-all">
       {/* Theme Cushion Hand Tray Body */}
       <div
-        className={`w-full rounded-[15px] p-1 sm:p-2 relative flex flex-col justify-center min-h-[60px] sm:min-h-[80px] max-h-[90px] sm:max-h-[120px] overflow-hidden shadow-xl transition-all ${
+        className={`w-full rounded-[15px] p-1.5 sm:p-2 relative flex flex-col justify-center min-h-[108px] sm:min-h-[142px] md:min-h-[162px] max-h-[130px] sm:max-h-[165px] md:max-h-[185px] overflow-hidden shadow-xl transition-all ${
           isDefault
             ? 'plush-cushion text-[#2D323E]'
             : 'rain-glass-card glass-shine text-[#1E3A8A]'
         }`}
       >
-        <div className="text-[8px] sm:text-[10px] font-extrabold opacity-30 absolute top-0.5 right-2 tracking-widest pointer-events-none select-none">
-          Rummikub
-        </div>
 
+        {/* Tray Background Drop Zone */}
         <div
           className="absolute inset-0 z-0"
-          onDragOver={(event) => event.preventDefault()}
+          onDragOver={(event) => {
+            event.preventDefault();
+            event.dataTransfer.dropEffect = 'move';
+          }}
           onDrop={(event) => {
             event.preventDefault();
+            setDragOverTileId(null);
             const tileId = event.dataTransfer.getData('text/tile-id');
             if (tileId) onDropTile(tileId);
           }}
         />
 
         {/* Hand Tiles List */}
-        <div className="relative z-10 flex flex-wrap items-center gap-1 sm:gap-1.5 overflow-y-auto max-h-[75px] sm:max-h-[110px] pr-0.5 py-0.5">
+        <div className="relative z-10 flex flex-wrap items-center gap-1 sm:gap-1.5 overflow-y-auto min-h-[92px] max-h-[110px] sm:min-h-[130px] sm:max-h-[148px] md:min-h-[148px] md:max-h-[165px] px-1 py-1">
           {hand.length === 0 ? (
             <div className="w-full text-center text-[10px] sm:text-xs font-black opacity-80 py-2">
               🎉 타일을 모두 사용했습니다! (승리 조건 충족)
             </div>
           ) : (
-            hand.map((tile) => (
-              <TileComponent
-                key={tile.id}
-                tile={tile}
-                theme={theme}
-                size={compact ? 'sm' : 'md'}
-                isSelected={selectedTile?.id === tile.id}
-                onClick={() => onSelectTile(tile)}
-                onLongPress={() => onLongPressTile(tile)}
-                onDragStart={(event) => onDragStartTile(tile, event)}
-              />
-            ))
+            hand.map((tile) => {
+              const isDragOverThis = dragOverTileId === tile.id;
+              return (
+                <div
+                  key={tile.id}
+                  className={`relative transition-all duration-150 rounded-lg ${
+                    isDragOverThis
+                      ? 'scale-110 ring-2 ring-amber-400 z-30 shadow-lg'
+                      : ''
+                  }`}
+                  onDragOver={(event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    event.dataTransfer.dropEffect = 'move';
+                    if (dragOverTileId !== tile.id) {
+                      setDragOverTileId(tile.id);
+                    }
+                  }}
+                  onDragLeave={(event) => {
+                    event.preventDefault();
+                    if (dragOverTileId === tile.id) {
+                      setDragOverTileId(null);
+                    }
+                  }}
+                  onDrop={(event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    setDragOverTileId(null);
+                    const draggedTileId = event.dataTransfer.getData('text/tile-id');
+                    if (draggedTileId) {
+                      onDropTile(draggedTileId, tile.id);
+                    }
+                  }}
+                >
+                  <TileComponent
+                    tile={tile}
+                    theme={theme}
+                    size="md"
+                    isSelected={selectedTile?.id === tile.id}
+                    onClick={() => onSelectTile(tile)}
+                    onLongPress={() => onLongPressTile(tile)}
+                    onDragStart={(event) => {
+                      event.dataTransfer.setData('text/tile-id', tile.id);
+                      event.dataTransfer.setData('text/tile-source', 'hand');
+                      onDragStartTile(tile, event);
+                    }}
+                  />
+                </div>
+              );
+            })
           )}
         </div>
       </div>

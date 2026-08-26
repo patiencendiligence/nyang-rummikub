@@ -51,10 +51,27 @@ export const GameView: React.FC<GameViewProps> = ({
   // Active floating emojis per player nickname
   const [activeEmojis, setActiveEmojis] = useState<Record<string, string>>({});
 
+  // Persistent hand sort mode ('789' | '777' | 'custom' | null)
+  const [sortMode, setSortMode] = useState<'789' | '777' | 'custom' | null>(null);
+  const prevGameStatusRef = useRef(gameState.status);
+  const prevRoomIdRef = useRef(gameState.roomId);
+
   // Timer countdown
   const turnTimeLimit = gameState.settings.turnTimeLimit || 30;
   const [timeLeft, setTimeLeft] = useState<number>(turnTimeLimit);
   const autoDrawTriggeredRef = useRef<number | null>(null);
+
+  // Reset sort mode when starting a new game/room
+  useEffect(() => {
+    if (
+      prevRoomIdRef.current !== gameState.roomId ||
+      (prevGameStatusRef.current !== 'playing' && gameState.status === 'playing')
+    ) {
+      setSortMode(null);
+    }
+    prevRoomIdRef.current = gameState.roomId;
+    prevGameStatusRef.current = gameState.status;
+  }, [gameState.status, gameState.roomId]);
 
   useEffect(() => {
     const updateTimer = () => {
@@ -63,6 +80,7 @@ export const GameView: React.FC<GameViewProps> = ({
       setTimeLeft(remaining);
 
       if (remaining === 0 && gameState.status === 'playing') {
+        const overdueMs = Date.now() - gameState.turnStartTime - turnTimeLimit * 1000;
         if (isMyTurn) {
           if (autoDrawTriggeredRef.current !== gameState.turnStartTime) {
             autoDrawTriggeredRef.current = gameState.turnStartTime;
@@ -71,14 +89,19 @@ export const GameView: React.FC<GameViewProps> = ({
               socket.emit('draw_tile', { roomId: gameState.roomId });
               setSelectedTile(null);
             }
+          } else if (overdueMs >= 1500 && socket) {
+            // Periodic retry if turn hasn't advanced
+            socket.emit('timeout_turn', { roomId: gameState.roomId });
           }
         } else {
-          // If turn exceeds limit by 1 second, ping server timeout_turn to advance turn smoothly
-          if (Date.now() - gameState.turnStartTime >= (turnTimeLimit + 1) * 1000) {
-            if (socket && autoDrawTriggeredRef.current !== gameState.turnStartTime) {
-              autoDrawTriggeredRef.current = gameState.turnStartTime;
+          // If turn exceeds limit by 300ms or more, ping server timeout_turn to advance turn smoothly
+          if (overdueMs >= 300 && autoDrawTriggeredRef.current !== gameState.turnStartTime) {
+            autoDrawTriggeredRef.current = gameState.turnStartTime;
+            if (socket) {
               socket.emit('timeout_turn', { roomId: gameState.roomId });
             }
+          } else if (overdueMs >= 1500 && socket) {
+            socket.emit('timeout_turn', { roomId: gameState.roomId });
           }
         }
       }
@@ -91,13 +114,41 @@ export const GameView: React.FC<GameViewProps> = ({
 
   const progressPercent = Math.min(100, Math.max(0, (timeLeft / turnTimeLimit) * 100));
 
-  // Sync state from server on update
+  // Sync state from server on update, preserving chosen sortMode
   useEffect(() => {
     setBoard(gameState.board);
     if (currentPlayer) {
-      setHand(currentPlayer.hand);
+      const serverHand = currentPlayer.hand;
+      if (sortMode === '789') {
+        setHand(sortHand(serverHand, 'color'));
+      } else if (sortMode === '777') {
+        setHand(sortHand(serverHand, 'number'));
+      } else if (sortMode === 'custom') {
+        setHand((prevHand) => {
+          const serverTileMap = new Map<string, Tile>(serverHand.map((t) => [t.id, t]));
+          const preserved: Tile[] = [];
+          const usedIds = new Set<string>();
+
+          prevHand.forEach((t) => {
+            if (serverTileMap.has(t.id)) {
+              preserved.push(serverTileMap.get(t.id)!);
+              usedIds.add(t.id);
+            }
+          });
+
+          serverHand.forEach((t) => {
+            if (!usedIds.has(t.id)) {
+              preserved.push(t);
+            }
+          });
+
+          return preserved;
+        });
+      } else {
+        setHand(serverHand);
+      }
     }
-  }, [gameState, currentUserId]);
+  }, [gameState, currentUserId, sortMode]);
 
   // Turn sound alert when turn switches to me
   useEffect(() => {
@@ -228,14 +279,65 @@ export const GameView: React.FC<GameViewProps> = ({
     commitBoardChange([...nextBoard, [dragged.tile]], hand.filter((tile) => tile.id !== tileId));
   };
 
-  const handleDropTileToHand = (tileId: string) => {
+  const handleSetHand = (newHand: Tile[]) => {
+    setHand(newHand);
+    if (socket) {
+      socket.emit('update_hand_order', {
+        roomId: gameState.roomId,
+        myHand: newHand,
+      });
+    }
+  };
+
+  const handleDropTileToHand = (tileId: string, targetTileId?: string) => {
+    // 1) Reorder inside hand tray
+    const handSourceIndex = hand.findIndex((t) => t.id === tileId);
+    if (handSourceIndex >= 0) {
+      setSortMode('custom');
+      if (!targetTileId || targetTileId === tileId) {
+        // Dragged to hand background (move to end)
+        if (handSourceIndex === hand.length - 1) return;
+        const newHand = [...hand];
+        const [moved] = newHand.splice(handSourceIndex, 1);
+        newHand.push(moved);
+        sounds.playTileClick();
+        handleSetHand(newHand);
+        return;
+      }
+      const targetIndex = hand.findIndex((t) => t.id === targetTileId);
+      if (targetIndex < 0 || targetIndex === handSourceIndex) return;
+
+      const newHand = [...hand];
+      const [moved] = newHand.splice(handSourceIndex, 1);
+      newHand.splice(targetIndex, 0, moved);
+      sounds.playTileClick();
+      handleSetHand(newHand);
+      return;
+    }
+
+    // 2) Moving tile from board back to hand (only allowed during my turn)
     if (!isMyTurn) return;
     const dragged = getDraggedTile(tileId);
     if (!dragged || dragged.sourceSetIndex < 0) return;
+
+    sounds.playTileClick();
     const nextBoard = board
       .map((set) => set.filter((tile) => tile.id !== tileId))
       .filter((set) => set.length > 0);
-    commitBoardChange(nextBoard, [...hand, dragged.tile]);
+
+    let nextHand = [...hand];
+    if (targetTileId) {
+      const targetIndex = nextHand.findIndex((t) => t.id === targetTileId);
+      if (targetIndex >= 0) {
+        nextHand.splice(targetIndex, 0, dragged.tile);
+      } else {
+        nextHand.push(dragged.tile);
+      }
+    } else {
+      nextHand.push(dragged.tile);
+    }
+
+    commitBoardChange(nextBoard, nextHand);
   };
 
   const handlePlaceTileToSet = (targetSetIndex: number) => {
@@ -302,12 +404,16 @@ export const GameView: React.FC<GameViewProps> = ({
     setSelectedTile(null);
   };
 
-  const handleSortByNumber = () => {
-    setHand(sortHand(hand, 'number'));
+  const handleSortBy789 = () => {
+    sounds.playTileClick();
+    setSortMode('789');
+    handleSetHand(sortHand(hand, 'color'));
   };
 
-  const handleSortByColor = () => {
-    setHand(sortHand(hand, 'color'));
+  const handleSortBy777 = () => {
+    sounds.playTileClick();
+    setSortMode('777');
+    handleSetHand(sortHand(hand, 'number'));
   };
 
   const handleSendEmoji = (emoji: string) => {
@@ -320,7 +426,7 @@ export const GameView: React.FC<GameViewProps> = ({
   };
 
   return (
-    <div className="w-full h-screen max-h-screen overflow-hidden flex flex-col justify-between p-2 sm:p-3 md:p-4 max-w-[1600px] mx-auto relative select-none">
+    <div className="w-full h-screen max-h-screen overflow-hidden flex flex-col justify-between p-1 sm:p-2 md:p-3 max-w-[1600px] mx-auto relative select-none">
       {/* Action Error Notification Toast */}
       {errorMessage && (
         <div className="fixed top-12 left-1/2 -translate-x-1/2 z-50 max-w-md w-full px-4 animate-bounce">
@@ -339,79 +445,154 @@ export const GameView: React.FC<GameViewProps> = ({
         </div>
       )}
 
-      {/* Top Bar: Timer, Tile Pool, Action Text, Leave Button */}
+      {/* TOP HEADER: Leave, Tile Count, Players Horizontal Bar, Timer */}
       <div
-        className={`w-full py-2 px-3 sm:px-4 rounded-[15px] flex items-center justify-between gap-2 shadow-md shrink-0 transition-all`}
+        className={`w-full py-1 sm:py-1 px-2 sm:px-2 rounded-xl flex items-center justify-between gap-1.5 sm:gap-1 shadow-md shrink-0 transition-all ${
+          isDefault ? 'plush-cushion' : 'rain-glass-card glass-shine'
+        }`}
       >
         {/* Left: Leave Lobby & Tile Pool Count */}
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-1.5 shrink-0">
           <button
             onClick={onReturnToLobby}
-            className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 transition-all active:scale-95 ${
+            className={`w-7 h-7 sm:w-5 sm:h-5 rounded-full flex items-center justify-center shrink-0 transition-all active:scale-95 ${
               isDefault ? 'plush-orb-btn' : 'glass-capsule text-[#1E3A8A]'
             }`}
             title="대기실로 나가기"
           >
-            <ArrowLeft className="w-4 h-4" />
+            <ArrowLeft className="w-3.5 h-3.5 sm:w-3 sm:h-3" />
           </button>
           <div
-            className={`flex items-center gap-1.5 text-xs font-black px-2.5 py-1 ${
+            className={`flex items-center gap-1 text-[10px] sm:text-xs font-black px-2 py-0.5 sm:px-1 sm:py-0.5 ${
               isDefault ? 'plush-pill' : 'glass-capsule text-[#1E3A8A]'
             }`}
           >
-            <Layers className="w-3.5 h-3.5 text-amber-500" />
-            <span>
-              남은타일 <strong className="text-amber-600 font-extrabold">{gameState.tilePool.length}</strong>
-            </span>
+            <Layers className="w-3 h-3 sm:w-3 sm:h-3 text-amber-500" />
+            <span className="hidden xs:inline">남은타일</span>
+            <strong className="text-amber-600 font-extrabold">{gameState.tilePool.length}</strong>
           </div>
         </div>
 
-        {/* Center: Timer & Turn Banner */}
-        <div className="flex items-center gap-2 flex-1 max-w-xs sm:max-w-sm justify-center">
-          {isMyTurn ? (
-            <span className="text-[10px] sm:text-xs font-black text-[#2D323E] truncate">내 차례입니다.</span>
-          ) : gameState.players[gameState.currentTurnIndex]?.isBot ? (
-            <span className="text-[10px] sm:text-xs font-black text-amber-700 animate-pulse truncate">
-              🤖 {gameState.players[gameState.currentTurnIndex]?.nickname} 생각 중...
-            </span>
-          ) : (
-            <span className="text-[10px] sm:text-xs font-bold text-gray-500 truncate">
-              {gameState.players[gameState.currentTurnIndex]?.nickname} 님의 차례
-            </span>
-          )}
-          <Clock
-            className={`w-4 h-4 shrink-0 ${
-              timeLeft <= 10 ? 'text-red-500 animate-bounce' : 'text-amber-500'
-            }`}
-          />
-          <div className="flex-1 max-w-[120px] sm:max-w-[180px]">
-            <div
-              className={`w-full h-2.5 rounded-full overflow-hidden p-0.5 ${
-                isDefault ? 'plush-debossed' : 'bg-white/60 border border-white'
+        {/* Center: Horizontal Players List */}
+        <div className="flex items-center justify-center gap-1 sm:gap-1 flex-1 min-w-0 overflow-x-auto py-0.5 no-scrollbar">
+          {gameState.players.map((p, idx) => {
+            const isTurn = idx === gameState.currentTurnIndex;
+            const isSelf = p.id === currentUserId;
+            const currentEmoji = activeEmojis[p.nickname];
+
+            return (
+              <div
+                key={p.id}
+                className={`flex items-center gap-1 sm:gap-1 px-1 sm:px-1 py-0.5 sm:py-1 rounded-xl transition-all relative shrink-0 ${
+                  isTurn
+                    ? isDefault
+                      ? 'bg-amber-100/90 ring-2 ring-amber-400 shadow-sm'
+                      : 'bg-white/40 ring-2 ring-cyan-400 shadow-sm'
+                    : 'opacity-85 hover:opacity-100'
+                }`}
+              >
+                {/* Avatar with Turn Ring & Floating Emoji */}
+                <div className="relative w-6 h-6 sm:w-4 sm:h-4 rounded-full shrink-0 flex items-center justify-center">
+                  <img
+                    src={CAT_AVATARS[idx % CAT_AVATARS.length]}
+                    alt={p.nickname}
+                    className={`w-full h-full object-cover rounded-full bg-gray-200 border ${
+                      isTurn ? 'border-amber-400' : 'border-white/60'
+                    }`}
+                  />
+
+                  {/* Tile Count Badge on corner */}
+                  <div
+                    className={`absolute -top-1 -right-1 font-black text-[7px] sm:text-[9px] px-1 py-0.2 rounded-full shadow-md flex items-center gap-0.5 z-10 ${
+                      isDefault
+                        ? 'bg-[#356C63] text-white border border-emerald-700'
+                        : 'bg-blue-600 text-white'
+                    }`}
+                  >
+                    <span>★</span>
+                    <span>{p.hand.length}</span>
+                  </div>
+
+                  {/* Scale-Up Emoji Overlay */}
+                  {currentEmoji && (
+                    <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-[1px] rounded-full animate-in zoom-in-50 fade-in duration-200 pointer-events-none">
+                      <span className="text-base sm:text-xl animate-bounce drop-shadow-lg select-none">
+                        {currentEmoji}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Name & Meld Tag */}
+                <div className="flex flex-col text-left max-w-[55px] sm:max-w-[80px] leading-tight">
+                  <span
+                    className={`text-[8px] sm:text-[10px] font-black truncate ${
+                      isTurn
+                        ? isDefault
+                          ? 'text-amber-800'
+                          : 'text-blue-900 font-extrabold'
+                        : isDefault
+                        ? 'text-[#2D323E]'
+                        : 'text-[#1E3A8A]'
+                    }`}
+                  >
+                    {p.isBot ? `🤖 ${p.nickname}` : `${p.nickname}${isSelf ? '(나)' : ''}`}
+                  </span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Right: Turn status & Timer */}
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+          <div className="hidden md:flex flex-col items-end text-right leading-none">
+            {isMyTurn ? (
+              <span className="text-[10px] sm:text-xs font-black text-amber-700 animate-pulse">내 차례!</span>
+            ) : gameState.players[gameState.currentTurnIndex]?.isBot ? (
+              <span className="text-[9px] sm:text-[11px] font-bold text-amber-700 animate-pulse truncate max-w-[90px]">
+                🤖 {gameState.players[gameState.currentTurnIndex]?.nickname}
+              </span>
+            ) : (
+              <span className="text-[9px] sm:text-[11px] font-bold text-gray-600 truncate max-w-[90px]">
+                {gameState.players[gameState.currentTurnIndex]?.nickname}
+              </span>
+            )}
+          </div>
+
+          <div className="flex items-center gap-1 sm:gap-1.5">
+            <Clock
+              className={`w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0 ${
+                timeLeft <= 10 ? 'text-red-500 animate-bounce' : 'text-amber-500'
+              }`}
+            />
+            <div className="w-[45px] sm:w-[70px] md:w-[95px]">
+              <div
+                className={`w-full h-2 sm:h-2.5 rounded-full overflow-hidden p-0.5 ${
+                  isDefault ? 'plush-debossed' : 'bg-white/60 border border-white'
+                }`}
+              >
+                <div
+                  className={`h-full transition-all duration-300 rounded-full ${
+                    timeLeft <= 10 ? 'bg-rose-500' : 'bg-emerald-500'
+                  }`}
+                  style={{ width: `${progressPercent}%` }}
+                />
+              </div>
+            </div>
+            <span
+              className={`text-[10px] sm:text-xs font-black shrink-0 ${
+                timeLeft <= 10 ? 'text-rose-600 animate-pulse' : 'text-[#2D323E]'
               }`}
             >
-              <div
-                className={`h-full transition-all duration-300 rounded-full ${
-                  timeLeft <= 10 ? 'bg-rose-500' : 'bg-emerald-500'
-                }`}
-                style={{ width: `${progressPercent}%` }}
-              />
-            </div>
+              {timeLeft}초
+            </span>
           </div>
-          <span
-            className={`text-xs font-black shrink-0 ${
-              timeLeft <= 10 ? 'text-rose-600 animate-pulse' : 'text-[#2D323E]'
-            }`}
-          >
-            {timeLeft}초
-          </span>
         </div>
       </div>
 
-      {/* Main Game Stage (2 Columns:  Center Board+Rack, Right Players, Controls) */}
+      {/* Main Game Stage (2 Columns: Center Board+Rack, Right Controls) */}
       <div className="flex-1 flex items-stretch gap-1 sm:gap-2 my-1 min-h-0 overflow-hidden">
-        
-
         {/* CENTER COLUMN: Main Table Board & Bottom Rack */}
         <div className="flex-1 flex flex-col justify-between min-w-0 h-full gap-1 overflow-hidden">
           {/* Main Board Table Area */}
@@ -430,7 +611,6 @@ export const GameView: React.FC<GameViewProps> = ({
             />
           </div>
 
-
           {/* Bottom Player Rack Tray */}
           <div className="shrink-0">
             <PlayerHandArea
@@ -438,138 +618,81 @@ export const GameView: React.FC<GameViewProps> = ({
               theme={theme}
               selectedTile={selectedTile}
               onSelectTile={handleSelectHandTile}
-              onSetHand={setHand}
+              onSetHand={handleSetHand}
               onLongPressTile={handleLongPressHandTile}
               onDragStartTile={handleDragStartTile}
               onDropTile={handleDropTileToHand}
               isMyTurn={isMyTurn}
-              compact={true}
+              compact={false}
             />
           </div>
         </div>
 
-        {/* RIGHT COLUMN / BOTTOM-RIGHT ACTION CONTROLS */}
+        {/* RIGHT COLUMN / ACTION CONTROLS (NO SCROLLBAR) */}
         <div
-          className={`w-[44px] sm:w-[60px] md:w-[76px] shrink-0 flex flex-col items-center justify-between p-0.5 sm:p-1 rounded-xl sm:rounded-2xl overflow-y-auto gap-0.5 sm:gap-1 shadow-inner transition-all ${
+          className={`w-[52px] sm:w-[68px] md:w-[80px] shrink-0 flex flex-col items-center justify-end p-1 sm:p-1.5 rounded-2xl overflow-hidden gap-1 sm:gap-1.5 shadow-inner transition-all ${
             isDefault ? 'plush-cushion' : 'rain-glass-card glass-shine'
           }`}
         >
-          {/* Players Vertical Stack */}
-          <div className="flex flex-col items-center justify-start gap-1 sm:gap-2 w-full relative">
-            {gameState.players.map((p, idx) => {
-              const isTurn = idx === gameState.currentTurnIndex;
-              const isSelf = p.id === currentUserId;
-              const currentEmoji = activeEmojis[p.nickname];
-
-              return (
-                <div key={p.id} className="flex flex-col items-center relative group w-full">
-                  {/* Avatar with Turn Ring & Scale-Up Emoji Overlay */}
-                  <div
-                    className={`w-6 h-6 sm:w-8 sm:h-8 md:w-10 md:h-10 rounded-full relative p-0.5 transition-all flex items-center justify-center ${
-                      isTurn
-                        ? 'ring-2 ring-amber-400 ring-offset-1 ring-offset-white animate-pulse scale-105'
-                        : 'border border-white/60'
-                    }`}
-                  >
-                    <img
-                      src={CAT_AVATARS[idx % CAT_AVATARS.length]}
-                      alt={p.nickname}
-                      className="w-full h-full object-cover rounded-full bg-gray-200"
-                    />
-
-                    {/* Scale-Up Emoji Overlay directly on profile avatar size */}
-                    {currentEmoji && (
-                      <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-[1px] rounded-full animate-in zoom-in-50 fade-in duration-200 pointer-events-none">
-                        <span className="text-base sm:text-xl md:text-2xl animate-bounce drop-shadow-lg select-none">
-                          {currentEmoji}
-                        </span>
-                      </div>
-                    )}
-
-                    {/* Tile Count Badge */}
-                    <div
-                      className={`absolute -top-1 -right-1 font-black text-[6px] sm:text-[8px] px-0.5 py-0.2 rounded-full shadow-md flex items-center gap-0.5 z-10 ${
-                        isDefault
-                          ? 'bg-[#356C63] text-white border border-emerald-700'
-                          : 'glass-capsule bg-blue-600 text-white'
-                      }`}
-                    >
-                      <span>★</span>
-                      <span>{p.hand.length}</span>
-                    </div>
-                  </div>
-
-                  {/* Nickname & Melded Tag */}
-                  <div className="mt-0.5 text-center w-full">
-                    <span
-                      className={`text-[7px] sm:text-[8px] md:text-[10px] font-black block truncate leading-tight ${
-                        isTurn
-                          ? isDefault
-                            ? 'text-amber-700'
-                            : 'text-blue-900 font-extrabold'
-                          : isDefault
-                          ? 'text-[#2D323E]'
-                          : 'text-[#1E3A8A]'
-                      }`}
-                    >
-                      {p.isBot ? `🤖 ${p.nickname}` : `${p.nickname} ${isSelf ? '(나)' : ''}`}
-                    </span>
-                    <span className="text-[6px] sm:text-[7px] font-bold opacity-70 block">
-                      {p.hasMelded ? '30+' : '미등록'}
-                    </span>
-                  </div>
-                </div>
-              );
-            })}
+          {/* Sort Buttons (789 & 777) */}
+          <div className="flex flex-col gap-1 w-full shrink-0">
+            <button
+              onClick={handleSortBy789}
+              className={`w-full py-1 sm:py-1.5 font-black text-[9px] sm:text-[11px] md:text-xs rounded-xl shadow transition-all active:scale-95 ${
+                sortMode === '789'
+                  ? isDefault
+                    ? 'bg-amber-400 text-amber-950 ring-2 ring-amber-500 font-black shadow-md scale-[1.02]'
+                    : 'bg-cyan-500 text-white ring-2 ring-cyan-300 font-black shadow-md scale-[1.02]'
+                  : isDefault
+                  ? 'plush-pill hover:bg-amber-100'
+                  : 'glass-capsule text-[#1E3A8A]'
+              }`}
+              title="연속 수열 순 정렬 (789 - 색상별 연속)"
+            >
+              789
+            </button>
+            <button
+              onClick={handleSortBy777}
+              className={`w-full py-1 sm:py-1.5 font-black text-[9px] sm:text-[11px] md:text-xs rounded-xl shadow transition-all active:scale-95 ${
+                sortMode === '777'
+                  ? isDefault
+                    ? 'bg-indigo-400 text-white ring-2 ring-indigo-500 font-black shadow-md scale-[1.02]'
+                    : 'bg-blue-600 text-white ring-2 ring-blue-300 font-black shadow-md scale-[1.02]'
+                  : isDefault
+                  ? 'plush-pill hover:bg-indigo-100'
+                  : 'glass-capsule text-[#1E3A8A]'
+              }`}
+              title="같은 숫자 그룹 순 정렬 (777 - 숫자별)"
+            >
+              777
+            </button>
           </div>
 
-          {/* Bottom Right Primary Controls: Draw +, Submit, Reset */}
-          <div className="flex flex-col gap-0.5 sm:gap-1 w-full mt-auto">
-            {/* Top/Upper: Sort Buttons (789 & 777) */}
-            <div className="flex flex-col gap-0.5 w-full">
+          {/* Quick Emoji Reaction Cluster (2 cols x 3 rows) */}
+          <div
+            className={`w-full p-0.5 sm:p-1 rounded-xl grid grid-cols-2 gap-0.5 sm:gap-1 text-center shrink-0 ${
+              isDefault ? 'plush-debossed' : 'bg-white/40'
+            }`}
+          >
+            {EMOJIS.map((emoji) => (
               <button
-                onClick={handleSortByNumber}
-                className={`w-full py-0.5 font-black text-[8px] sm:text-[10px] md:text-xs rounded-lg shadow transition-all active:scale-95 ${
-                  isDefault ? 'plush-pill hover:bg-amber-100' : 'glass-capsule text-[#1E3A8A]'
-                }`}
-                title="숫자/연속 순 정렬 (789)"
+                key={emoji}
+                onClick={() => handleSendEmoji(emoji)}
+                className="text-xs sm:text-sm md:text-base hover:scale-125 transition-transform active:scale-90 py-0.5"
+                title={`${emoji} 감정 보내기`}
               >
-                789
+                {emoji}
               </button>
-              <button
-                onClick={handleSortByColor}
-                className={`w-full py-0.5 font-black text-[8px] sm:text-[10px] md:text-xs rounded-lg shadow transition-all active:scale-95 ${
-                  isDefault ? 'plush-pill hover:bg-indigo-100' : 'glass-capsule text-[#1E3A8A]'
-                }`}
-                title="색상/그룹 순 정렬 (777)"
-              >
-                777
-              </button>
-            </div>
+            ))}
+          </div>
 
-            {/* Quick Emoji Reaction Cluster */}
-            <div
-              className={`w-full p-0.5 rounded-lg grid grid-cols-2 gap-0.5 text-center ${
-                isDefault ? 'plush-debossed' : 'bg-white/40'
-              }`}
-            >
-              {EMOJIS.map((emoji) => (
-                <button
-                  key={emoji}
-                  onClick={() => handleSendEmoji(emoji)}
-                  className="text-[10px] sm:text-xs md:text-sm hover:scale-125 transition-transform active:scale-90"
-                  title={`${emoji} 감정 보내기`}
-                >
-                  {emoji}
-                </button>
-              ))}
-            </div>
-
+          {/* Primary Action Buttons: Draw +, Submit, Reset */}
+          <div className="flex flex-col gap-1 sm:gap-1.5 w-full shrink-0">
             {/* Draw Tile + Button */}
             <button
               disabled={!isMyTurn}
               onClick={handleDrawTile}
-              className={`w-full py-1 sm:py-1.5 rounded-xl flex flex-col items-center justify-center gap-0.5 font-black shadow-md transition-all active:scale-95 ${
+              className={`w-full py-1.5 sm:py-2 rounded-xl flex flex-col items-center justify-center gap-0.5 font-black shadow-md transition-all active:scale-95 ${
                 isMyTurn
                   ? isDefault
                     ? 'plush-purple-btn text-white animate-pulse'
@@ -578,8 +701,8 @@ export const GameView: React.FC<GameViewProps> = ({
               }`}
               title="타일 1개 가져오기 & 턴 패스"
             >
-              <Plus className="w-3 h-3 sm:w-4 sm:h-4 stroke-[3]" />
-              <span className="text-[7px] sm:text-[9px] font-black tracking-tight">
+              <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4 stroke-[3]" />
+              <span className="text-[8px] sm:text-[10px] font-black tracking-tight">
                 +{gameState.tilePool.length}
               </span>
             </button>
@@ -588,7 +711,7 @@ export const GameView: React.FC<GameViewProps> = ({
             <button
               disabled={!isMyTurn}
               onClick={handleEndTurn}
-              className={`w-full py-1 sm:py-1.5 rounded-lg font-black flex items-center justify-center gap-0.5 shadow transition-all active:scale-95 ${
+              className={`w-full py-1.5 sm:py-2 rounded-xl font-black flex items-center justify-center gap-0.5 sm:gap-1 shadow transition-all active:scale-95 ${
                 isMyTurn
                   ? isDefault
                     ? 'plush-rose-btn text-white'
@@ -597,15 +720,15 @@ export const GameView: React.FC<GameViewProps> = ({
               }`}
               title="등록 / Turn 완료"
             >
-              <Check className="w-3 h-3 sm:w-3.5 sm:h-3.5 stroke-[3]" />
-              <span className="text-[7px] sm:text-[9px]">등록</span>
+              <Check className="w-3.5 h-3.5 sm:w-4 sm:h-4 stroke-[3]" />
+              <span className="text-[9px] sm:text-[11px] font-black">등록</span>
             </button>
 
-            {/* Reset Turn with 10px top margin and 20px bottom margin */}
+            {/* Reset Turn */}
             <button
               disabled={!isMyTurn}
               onClick={handleResetBoard}
-              className={`w-full py-0.5 sm:py-1 rounded-lg font-black flex items-center justify-center gap-0.5 transition-all active:scale-95 mt-[10px] mb-[20px] ${
+              className={`w-full py-1 sm:py-1.5 rounded-xl font-black flex items-center justify-center gap-0.5 sm:gap-1 transition-all active:scale-95 ${
                 isMyTurn
                   ? isDefault
                     ? 'plush-debossed text-[#2D323E]'
@@ -614,8 +737,8 @@ export const GameView: React.FC<GameViewProps> = ({
               }`}
               title="이번 턴의 배치 되돌리기"
             >
-              <RotateCcw className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
-              <span className="text-[7px] sm:text-[9px]">리셋</span>
+              <RotateCcw className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+              <span className="text-[8px] sm:text-[10px] font-bold">리셋</span>
             </button>
           </div>
         </div>
