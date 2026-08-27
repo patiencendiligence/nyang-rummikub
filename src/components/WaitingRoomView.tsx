@@ -159,7 +159,7 @@ export const WaitingRoomView: React.FC<WaitingRoomViewProps> = ({
               onClick={handlePlayWithBot}
               className={`flex items-center justify-center gap-2 px-5 py-2.5 font-black text-xs rounded-2xl shadow-md transition-all active:scale-95 ${
                 isDefault
-                  ? 'bg-[#356C63] text-white hover:bg-[#28534C]'
+                  ? 'bg-[#ccc] text-white hover:bg-[#222]'
                   : 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:opacity-90'
               }`}
             >
